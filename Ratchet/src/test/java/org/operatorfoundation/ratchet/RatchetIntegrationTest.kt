@@ -3,6 +3,7 @@ package org.operatorfoundation.ratchet
 import org.junit.Test
 import org.junit.Assert.*
 import org.operatorfoundation.madh.MADH
+import org.operatorfoundation.unishox2.Unishox2
 
 class RatchetIntegrationTest
 {
