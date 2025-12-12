@@ -20,6 +20,11 @@ object Ratchet
     private const val HKDF_INFO = "SHOUT"
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
+    data class RatchetSendResult(
+        val state: RatchetState,
+        val ephemeralPublicKeyToSend: Curve25519PublicKey
+    )
+
     /**
      * Perform Elliptic Curve Diffie-Hellman key exchange using BouncyCastle
      */
@@ -109,19 +114,17 @@ object Ratchet
      * This should be called when receiving a message with a new public key.
      *
      * @param oldState The current ratchet state
-     * @param newRemoteEphemeralPublicKey New remote ephemeral public key
+     * @param remotePublicKey New remote ephemeral public key
      * @return The updated ratchet state
      */
-    fun ratchetWithNewKey(
+    private fun ratchetInternal(
         oldState: RatchetState,
-        newRemoteEphemeralPublicKey: Curve25519PublicKey
+        localKeypair: Curve25519KeyPair,
+        remotePublicKey: Curve25519PublicKey
     ): RatchetState
     {
-        // Generate new local ephemeral keypair
-        val newLocalEphemeralKeypair = MADH.generateKeypair()
-
         // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-        val sharedSecret = ecdh(newLocalEphemeralKeypair.privateKey, newRemoteEphemeralPublicKey)
+        val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
         val sharedKey = SharedKey.fromECDH(sharedSecret)
 
         // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
@@ -142,20 +145,50 @@ object Ratchet
             chainKey = chainKey,
             sharedKey = sharedKey,
             messageKey = messageKey,
-            localEphemeralKeypair = newLocalEphemeralKeypair,
-            remoteEphemeralPublicKey = newRemoteEphemeralPublicKey
+            localEphemeralKeypair = localKeypair,
+            remoteEphemeralPublicKey = remotePublicKey
         )
+    }
+
+    /**
+     * Ratchet for sending a message.
+     * Generates a new ephemeral keypair and uses the current remote public key.
+     *
+     * @param oldState The current ratchet state
+     * @return Result containing the new state and the ephemeral public key to send
+     */
+    fun ratchetForSend(oldState: RatchetState): RatchetSendResult
+    {
+        val newKeypair = MADH.generateKeypair()
+        val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
+        val newState = ratchetInternal(oldState, newKeypair, remoteKey)
+
+        return RatchetSendResult(newState, newKeypair.publicKey)
+    }
+
+    /**
+     * Ratchet for receiving a message.
+     * Uses the current local keypair with the sender's new ephemeral public key.
+     *
+     * @param oldState The current ratchet state
+     * @param senderEphemeralPublicKey The ephemeral public key received from the sender
+     * @return The updated ratchet state
+     */
+    fun ratchetForReceive(oldState: RatchetState, senderEphemeralPublicKey: Curve25519PublicKey): RatchetState
+    {
+        val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
+        return ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey)
     }
 
     /**
      * Advances the ratchet without new keys (symmetric ratchet step).
      * This should be called when sending/receiving multiple messages
-     * without a key change.
+     * without a key change (consecutive messages, same sender).
      *
      * @param oldState The current ratchet state
      * @return The updated ratchet state with new chain and message keys
      */
-    fun ratchetWithoutNewKey(oldState: RatchetState): RatchetState
+    fun symmetricRatchet(oldState: RatchetState): RatchetState
     {
         // Ensure we have a chain key to work with
         requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
