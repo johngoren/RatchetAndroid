@@ -50,7 +50,7 @@ class RatchetIntegrationTest
     }
 
     @Test
-    fun `ratchetWithNewKey performs DH ratchet step`()
+    fun `ratchetForSend performs DH ratchet step`()
     {
         val aliceKeypair = MADH.generateKeypair()
         val bobKeypair = MADH.generateKeypair()
@@ -60,18 +60,40 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val newRemotePublicKey = MADH.generateKeypair().publicKey
-
-        val newState = Ratchet.ratchetInternal(
-            oldState = initialState,
-            newRemoteEphemeralPublicKey = newRemotePublicKey
-        )
+        val result = Ratchet.ratchetForSend(initialState)
+        val newState = result.state
 
         // All keys should be created after DH ratchet
         assertNotNull(newState.chainKey)
         assertNotNull(newState.sharedKey)
         assertNotNull(newState.messageKey)
-        assertNotNull(newState.localEphemeralKeypair)
+        assertNotNull(result.ephemeralPublicKeyToSend)
+
+        // Root key should change
+        assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
+
+        // Message number should increment
+        assertEquals(1, newState.messageNumber)
+    }
+
+    @Test
+    fun `ratchetForReceive performs DH ratchet step`()
+    {
+        val aliceKeypair = MADH.generateKeypair()
+        val bobKeypair = MADH.generateKeypair()
+
+        val initialState = Ratchet.newRatchetState(
+            aliceKeypair,
+            bobKeypair.publicKey
+        )
+
+        val senderEphemeralKey = MADH.generateKeypair().publicKey
+        val newState = Ratchet.ratchetForReceive(initialState, senderEphemeralKey)
+
+        // All keys should be created after DH ratchet
+        assertNotNull(newState.chainKey)
+        assertNotNull(newState.sharedKey)
+        assertNotNull(newState.messageKey)
         assertNotNull(newState.remoteEphemeralPublicKey)
 
         // Root key should change
@@ -93,8 +115,8 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        val state1 = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val senderEphemeralKey = MADH.generateKeypair().publicKey
+        val state1 = Ratchet.ratchetForReceive(initialState, senderEphemeralKey)
 
         val state2 = Ratchet.symmetricRatchet(state1)
 
@@ -124,8 +146,8 @@ class RatchetIntegrationTest
         )
 
         // Need to perform DH ratchet first to get a message key
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        val state = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        val state = result.state
 
         val originalMessage = PlaintextMessage(
             type = PlaintextMessageType.UNCOMPRESSED_TEXT,
@@ -151,8 +173,8 @@ class RatchetIntegrationTest
         )
 
         // Perform initial DH ratchet
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        var state = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        var state = result.state
 
         val messages = listOf("First", "Second", "Third")
 
@@ -185,8 +207,8 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val bobEphemeralKey = MADH.generateKeypair().publicKey
-        var aliceState = Ratchet.ratchetInternal(aliceInitialState, bobEphemeralKey)
+        val result = Ratchet.ratchetForSend(aliceInitialState)
+        var aliceState = result.state
 
         // Alice sends first message
         val message1 = PlaintextMessage(
@@ -221,20 +243,21 @@ class RatchetIntegrationTest
         )
 
         // Perform first DH ratchet with ephemeral keys
-        val remoteEphemeralKey1 = MADH.generateKeypair().publicKey
-        val state1 = Ratchet.ratchetInternal(initialState, remoteEphemeralKey1)
+        val result1 = Ratchet.ratchetForSend(initialState)
+        val state1 = result1.state
 
         // Perform second DH ratchet with new ephemeral keys
-        val remoteEphemeralKey2 = MADH.generateKeypair().publicKey
-        val state2 = Ratchet.ratchetInternal(state1, remoteEphemeralKey2)
+        val result2 = Ratchet.ratchetForSend(state1)
+        val state2 = result2.state
 
         // All keys should be completely different (forward secrecy)
         assertFalse(state1.rootKey.bytes.contentEquals(state2.rootKey.bytes))
         assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
         assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
         assertFalse(state1.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
-        assertNotEquals(state1.localEphemeralKeypair, state2.localEphemeralKeypair)
-        assertNotEquals(state1.remoteEphemeralPublicKey, state2.remoteEphemeralPublicKey)
+
+        // The ephemeral keys should be different
+        assertFalse(result1.ephemeralPublicKeyToSend.bytes.contentEquals(result2.ephemeralPublicKeyToSend.bytes))
     }
 
     @Test
@@ -248,8 +271,8 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        var state = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        var state = result.state
 
         val message = PlaintextMessage(
             type = PlaintextMessageType.UNCOMPRESSED_TEXT,
@@ -279,8 +302,8 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        val state = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        val state = result.state
 
         val messageTypes = listOf(
             PlaintextMessageType.HANDSHAKE,
@@ -316,8 +339,8 @@ class RatchetIntegrationTest
         assertEquals(0, initialState.messageNumber)
 
         // DH ratchet increments to 1
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        var state = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        var state = result.state
         assertEquals(1, state.messageNumber)
 
         // Symmetric ratchets increment by 1 each
@@ -339,8 +362,8 @@ class RatchetIntegrationTest
             bobKeypair.publicKey
         )
 
-        val remoteEphemeralKey = MADH.generateKeypair().publicKey
-        val state1 = Ratchet.ratchetInternal(initialState, remoteEphemeralKey)
+        val result = Ratchet.ratchetForSend(initialState)
+        val state1 = result.state
         val state2 = Ratchet.symmetricRatchet(state1)
 
         val message = PlaintextMessage(
