@@ -132,7 +132,7 @@ class RatchetUnitTests
 
         // Perform first ratchet with new key
         val bobEphemeralKeypair = MADH.generateKeypair()
-        val ratchetedState = Ratchet.ratchetWithNewKey(
+        val ratchetedState = Ratchet.ratchetInternal(
             initialState,
             bobEphemeralKeypair.publicKey
         )
@@ -165,10 +165,10 @@ class RatchetUnitTests
 
         // Setup: create state with ephemeral keys
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state1 = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        val state1 = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         // Advance without new keys
-        val state2 = Ratchet.ratchetWithoutNewKey(state1)
+        val state2 = Ratchet.symmetricRatchet(state1)
 
         // Message number should increment
         assertEquals(2, state2.messageNumber)
@@ -197,7 +197,7 @@ class RatchetUnitTests
         // Should fail because there's no chain key yet
         try
         {
-            Ratchet.ratchetWithoutNewKey(initialState)
+            Ratchet.symmetricRatchet(initialState)
             fail("Should have thrown IllegalArgumentException")
         }
         catch (e: IllegalArgumentException)
@@ -214,14 +214,14 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        var state = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        var state = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         val messageKeys = mutableListOf(state.messageKey!!.bytes)
 
         // Generate 5 more message keys
         repeat(5)
         {
-            state = Ratchet.ratchetWithoutNewKey(state)
+            state = Ratchet.symmetricRatchet(state)
             messageKeys.add(state.messageKey!!.bytes)
         }
 
@@ -248,7 +248,7 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        val state = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         val originalMessage = PlaintextMessage(
             PlaintextMessageType.DATA,
@@ -273,7 +273,7 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        val state = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         val message = PlaintextMessage(
             PlaintextMessageType.DATA,
@@ -296,8 +296,8 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state1 = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
-        val state2 = Ratchet.ratchetWithoutNewKey(state1)
+        val state1 = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
+        val state2 = Ratchet.symmetricRatchet(state1)
 
         val message = PlaintextMessage(
             PlaintextMessageType.DATA,
@@ -330,7 +330,7 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        val state = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         // Alice encrypts a message
         val message = PlaintextMessage(
@@ -356,14 +356,14 @@ class RatchetUnitTests
         // Alice initializes and performs first ratchet
         val aliceInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
         val bobEphemeralKeypair = MADH.generateKeypair()
-        val aliceState1 = Ratchet.ratchetWithNewKey(aliceInitialState, bobEphemeralKeypair.publicKey)
+        val aliceState1 = Ratchet.ratchetInternal(aliceInitialState, bobEphemeralKeypair.publicKey)
 
         // Alice encrypts message 1
         val message1 = PlaintextMessage(PlaintextMessageType.DATA, "Message 1".toByteArray())
         val ciphertext1 = Ratchet.encrypt(aliceState1.messageKey!!, message1)
 
         // Alice advances her ratchet for message 2
-        val aliceState2 = Ratchet.ratchetWithoutNewKey(aliceState1)
+        val aliceState2 = Ratchet.symmetricRatchet(aliceState1)
         val message2 = PlaintextMessage(PlaintextMessageType.DATA, "Message 2".toByteArray())
         val ciphertext2 = Ratchet.encrypt(aliceState2.messageKey!!, message2)
 
@@ -391,13 +391,13 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        var state = Ratchet.ratchetWithNewKey(initialState, bobEphemeralKeypair.publicKey)
+        var state = Ratchet.ratchetInternal(initialState, bobEphemeralKeypair.publicKey)
 
         assertEquals(1, state.messageNumber)
 
         // Advance 10 times
         repeat(10) { i ->
-            state = Ratchet.ratchetWithoutNewKey(state)
+            state = Ratchet.symmetricRatchet(state)
             assertEquals(i + 2, state.messageNumber)
             assertNotNull(state.messageKey)
         }
@@ -412,8 +412,8 @@ class RatchetUnitTests
         val bobEphemeral2 = MADH.generateKeypair()
 
         val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-        val state1 = Ratchet.ratchetWithNewKey(initialState, bobEphemeral1.publicKey)
-        val state2 = Ratchet.ratchetWithNewKey(state1, bobEphemeral2.publicKey)
+        val state1 = Ratchet.ratchetInternal(initialState, bobEphemeral1.publicKey)
+        val state2 = Ratchet.ratchetInternal(state1, bobEphemeral2.publicKey)
 
         // All ephemeral keys should be different
         assertFalse(state1.rootKey.bytes.contentEquals(state2.rootKey.bytes))
