@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "org.operatorfoundation.ratchedandroid"
-        minSdk = 33
+        minSdk = 28
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
