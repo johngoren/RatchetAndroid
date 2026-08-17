@@ -42,7 +42,7 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.78")
     implementation("com.github.OperatorFoundation:AESAndroid:v1.0.1")
     implementation("com.github.OperatorFoundation:MADHAndroid:v1.0.5")
-    implementation("com.github.OperatorFoundation:Unishox2Android:v1.0.0")
+    implementation("com.github.johngoren:Unishox2Android:0.2b")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
