@@ -32,6 +32,10 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    publishing {
+        singleVariant("release")
+    }
 }
 
 dependencies {
@@ -58,9 +62,9 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
 
-                groupId = "com.github.OperatorFoundation"
+                groupId = project.group.toString()
                 artifactId = "RatchetAndroid"
-                version = project.findProperty("version")?.toString() ?: "1.0.0"
+                version = project.version.toString()
             }
         }
     }
