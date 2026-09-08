@@ -2,7 +2,7 @@ package org.operatorfoundation.ratchet
 
 import java.nio.ByteBuffer
 
-data class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
+class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
 {
     companion object
     {

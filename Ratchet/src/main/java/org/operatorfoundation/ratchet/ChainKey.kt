@@ -4,7 +4,7 @@ package org.operatorfoundation.ratchet
  * Represents the chain key in the double ratchet algorithm.
  * The chain key is used to derive message keys.
  */
-data class ChainKey(val bytes: ByteArray)
+class ChainKey(val bytes: ByteArray)
 {
     companion object
     {

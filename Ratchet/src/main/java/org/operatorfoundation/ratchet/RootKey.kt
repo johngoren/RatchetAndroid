@@ -4,7 +4,7 @@ package org.operatorfoundation.ratchet
  * Represents the root key in the double ratchet algorithm.
  * The root key is used to derive chain keys.
  */
-data class RootKey(val bytes: ByteArray)
+class RootKey(val bytes: ByteArray)
 {
     companion object
     {

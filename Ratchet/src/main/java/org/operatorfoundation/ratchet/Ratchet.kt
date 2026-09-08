@@ -20,7 +20,7 @@ object Ratchet
     private const val HKDF_INFO = "SHOUT"
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
-    data class RatchetSendResult(
+    class RatchetSendResult(
         val state: RatchetState,
         val ephemeralPublicKeyToSend: Curve25519PublicKey
     )
