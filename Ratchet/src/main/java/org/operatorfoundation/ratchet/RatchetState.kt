@@ -13,7 +13,7 @@ import org.operatorfoundation.madh.Curve25519PublicKey
  * @property localEphemeralKeypair The local ephemeral key pair
  * @property remoteEphemeralPublicKey The remote party's ephemeral public key
  */
-data class RatchetState(
+class RatchetState(
     val localLongtermKeypair: Curve25519KeyPair,
     val remoteLongtermPublicKey: Curve25519PublicKey,
     val rootKey: RootKey,
@@ -22,5 +22,20 @@ data class RatchetState(
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
     val localEphemeralKeypair: Curve25519KeyPair? = null,
-    val remoteEphemeralPublicKey: Curve25519PublicKey? = null,
-)
+    val remoteEphemeralPublicKey: Curve25519PublicKey? = null
+) {
+
+    fun copy(
+        localLongtermKeypair: Curve25519KeyPair = this.localLongtermKeypair,
+        remoteLongtermPublicKey: Curve25519PublicKey = this.remoteLongtermPublicKey,
+        rootKey: RootKey = this.rootKey,
+        messageNumber: Int = this.messageNumber,
+        chainKey: ChainKey? = this.chainKey,
+        sharedKey: SharedKey? = this.sharedKey,
+        messageKey: MessageKey? = this.messageKey,
+        localEphemeralKeypair: Curve25519KeyPair? = this.localEphemeralKeypair,
+        remoteEphemeralPublicKey: Curve25519PublicKey? = this.remoteEphemeralPublicKey): RatchetState
+    {
+        return RatchetState(localLongtermKeypair, remoteLongtermPublicKey, rootKey, messageNumber, chainKey, sharedKey, messageKey, localEphemeralKeypair, remoteEphemeralPublicKey)
+    }
+}

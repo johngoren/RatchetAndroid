@@ -383,6 +383,7 @@ class RatchetUnitTests
         // Alice initializes and performs first ratchet
         val aliceInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
         val bobEphemeralKeypair = MADH.generateKeypair()
+
         val aliceState1 = Ratchet.ratchetForReceive(aliceInitialState, bobEphemeralKeypair.publicKey)
 
         // Alice encrypts message 1
