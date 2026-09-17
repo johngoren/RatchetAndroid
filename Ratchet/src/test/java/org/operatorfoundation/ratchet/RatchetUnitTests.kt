@@ -3,6 +3,7 @@ package org.operatorfoundation.ratchet
 import org.junit.Test
 import org.junit.Assert.*
 import org.operatorfoundation.madh.MADH
+import kotlin.test.assertFailsWith
 
 class RatchetUnitTests
 {
@@ -76,6 +77,42 @@ class RatchetUnitTests
 
         assertEquals(PlaintextMessageType.DATA, deserialized.type)
         assertArrayEquals(largeContent, deserialized.bytes)
+    }
+
+    @Test
+    fun `PlaintextMessage will refuse to serialize content that exceeds size limit`()
+    {
+        val excessivelyLongContent = ByteArray(5000000)
+        val message = PlaintextMessage(PlaintextMessageType.DATA, bytes=excessivelyLongContent)
+
+        assertFailsWith(
+            exceptionClass = IllegalArgumentException::class,
+            block = {
+                message.toBytes()
+            }
+        )
+    }
+
+    @Test
+    fun `PlaintextMessage will refuse to deserialize content that exceeds size limit`()
+    {
+        val basicContent = ByteArray(100)
+        val validWireMessage = PlaintextMessage(PlaintextMessageType.DATA, basicContent).toBytes()
+
+        assert(validWireMessage[0].toInt() == 1)
+
+        val invalidNumOfBytes = 0x05
+        val invalidMessage = validWireMessage.copyOf().also {
+            it[0] = invalidNumOfBytes.toByte()
+        }
+
+        assertFailsWith(
+            exceptionClass = IllegalArgumentException::class,
+            block = {
+                PlaintextMessage.fromBytes(invalidMessage)
+            }
+        )
+
     }
 
     @Test
