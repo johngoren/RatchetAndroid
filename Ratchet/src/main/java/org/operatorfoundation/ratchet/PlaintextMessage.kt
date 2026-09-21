@@ -2,6 +2,11 @@ package org.operatorfoundation.ratchet
 
 import java.nio.ByteBuffer
 
+/**
+ * Plaintext Message
+ *
+ *
+ */
 class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
 {
 
@@ -21,7 +26,7 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
          * @throws IllegalArgumentException if the data is invalid
          */
 
-        private const val MAX_LENGTH_SIZE_BYTES = 3
+        private const val MAX_NUM_BYTES_FOR_REPRESENTING_LENGTH = 3
 
         fun fromBytes(data: ByteArray): PlaintextMessage
         {
@@ -30,21 +35,21 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
             var offset = 0
 
             // Read number of bytes to expect in length (1 byte)
-            val numBytesInLength = data[offset].toInt() and 0xFF
+            val numBytesRepresentingLength = data[offset].toInt() and 0xFF
             offset += 1
 
-            require(numBytesInLength in 1..MAX_LENGTH_SIZE_BYTES) { "Invalid length size: $numBytesInLength" }
-            require(data.size >= offset + numBytesInLength) { "Data too short for length field" }
+            require(numBytesRepresentingLength in 1..MAX_NUM_BYTES_FOR_REPRESENTING_LENGTH) { "Invalid length size: $numBytesRepresentingLength" }
+            require(data.size >= offset + numBytesRepresentingLength) { "Data too short for length field" }
 
             // Read actual length (N bytes, big-endian, signed)
             var messageLength = 0
-            for (i in 0 until numBytesInLength)
+            for (i in 0 until numBytesRepresentingLength)
             {
                 messageLength = (messageLength shl 8) or (data[offset].toInt() and 0xFF)
                 offset += 1
             }
 
-            val maxAllowedLength = when(numBytesInLength) {
+            val maxAllowedLength = when(numBytesRepresentingLength) {
                 1 -> 0x7F
                 2 -> 0x7FFF
                 3 -> 0x7FFFF
@@ -52,12 +57,12 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
             }
 
             require(messageLength in 1..maxAllowedLength) {
-                "Length $messageLength exceeds maximum signed value for $numBytesInLength byte(s)"
+                "Length $messageLength does not fall within allowable values for $numBytesRepresentingLength byte(s)"
             }
 
             require(data.size >= offset + messageLength) { "Data too short for message content" }
 
-            // Read type (1 byte)
+            // Read message type (1 byte)
             val typeByte = data[offset]
             offset += 1
 

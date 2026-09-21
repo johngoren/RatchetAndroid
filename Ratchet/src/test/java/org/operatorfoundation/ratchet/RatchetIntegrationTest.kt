@@ -157,8 +157,8 @@ class RatchetIntegrationTest
         val ciphertext = Ratchet.encrypt(state.messageKey!!, originalMessage)
         val decryptedMessage = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-        assertEquals(originalMessage.type, decryptedMessage.type)
-        assertArrayEquals(originalMessage.bytes, decryptedMessage.bytes)
+        assertEquals(originalMessage.type, decryptedMessage!!.type)
+        assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
     }
 
     @Test
@@ -188,7 +188,7 @@ class RatchetIntegrationTest
             val ciphertext = Ratchet.encrypt(state.messageKey!!, plaintext)
             val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-            assertArrayEquals(plaintext.bytes, decrypted.bytes)
+            assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
             // Advance ratchet for next message
             state = Ratchet.symmetricRatchet(state)
@@ -217,7 +217,7 @@ class RatchetIntegrationTest
         )
         val ciphertext1 = Ratchet.encrypt(aliceState.messageKey!!, message1)
         val decrypted1 = Ratchet.decrypt(aliceState.messageKey!!, ciphertext1)
-        assertArrayEquals(message1.bytes, decrypted1.bytes)
+        assertArrayEquals(message1.bytes, decrypted1!!.bytes)
 
         // Alice advances ratchet and sends second message
         aliceState = Ratchet.symmetricRatchet(aliceState)
@@ -228,7 +228,7 @@ class RatchetIntegrationTest
         )
         val ciphertext2 = Ratchet.encrypt(aliceState.messageKey!!, message2)
         val decrypted2 = Ratchet.decrypt(aliceState.messageKey!!, ciphertext2)
-        assertArrayEquals(message2.bytes, decrypted2.bytes)
+        assertArrayEquals(message2.bytes, decrypted2!!.bytes)
     }
 
     @Test
@@ -320,8 +320,8 @@ class RatchetIntegrationTest
             val ciphertext = Ratchet.encrypt(state.messageKey!!, message)
             val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-            assertEquals(messageType, decrypted.type)
-            assertArrayEquals("test".toByteArray(), decrypted.bytes)
+            assertEquals(messageType, decrypted!!.type)
+            assertArrayEquals("test".toByteArray(), decrypted!!.bytes)
         }
     }
 

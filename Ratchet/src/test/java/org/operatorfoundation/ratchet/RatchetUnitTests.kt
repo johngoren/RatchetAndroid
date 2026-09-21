@@ -94,7 +94,7 @@ class RatchetUnitTests
     }
 
     @Test
-    fun `PlaintextMessage will refuse to deserialize content that exceeds size limit`()
+    fun `PlaintextMessage will refuse to deserialize content beyond its size limits`()
     {
         val basicContent = ByteArray(100)
         val validWireMessage = PlaintextMessage(PlaintextMessageType.DATA, basicContent).toBytes()
@@ -102,19 +102,67 @@ class RatchetUnitTests
         assert(validWireMessage[0].toInt() == 1)
 
         val invalidNumOfBytes = 0x05
-        val invalidMessage = validWireMessage.copyOf().also {
+        val invalidMessage1 = validWireMessage.copyOf().also {
             it[0] = invalidNumOfBytes.toByte()
         }
 
         assertFailsWith(
             exceptionClass = IllegalArgumentException::class,
             block = {
-                PlaintextMessage.fromBytes(invalidMessage)
+                PlaintextMessage.fromBytes(invalidMessage1)
             }
         )
 
+        val zeroValueByte = 0x00
+        val invalidMessage2 = validWireMessage.copyOf().also {
+            it[0] = zeroValueByte.toByte()
+        }
+
+        assertFailsWith(
+            exceptionClass = IllegalArgumentException::class,
+            block = {
+                PlaintextMessage.fromBytes(invalidMessage2)
+            }
+        )
+
+        val outOfBoundsByteValue = 0xFF
+        val invalidMessage3 = validWireMessage.copyOf().also {
+            it[0] = outOfBoundsByteValue.toByte()
+        }
+
+        assertFailsWith(
+            exceptionClass = IllegalArgumentException::class,
+            block = {
+                PlaintextMessage.fromBytes(invalidMessage3)
+            }
+        )
+
+        validWireMessage.copyOf().also {
+            it[0] = outOfBoundsByteValue.toByte()
+            val badByteArray = byteArrayOf(outOfBoundsByteValue.toByte())
+            val invalidMessage4 = it + badByteArray
+            assertFailsWith(
+                exceptionClass = IllegalArgumentException::class,
+                block = {
+                    PlaintextMessage.fromBytes(invalidMessage4)
+                }
+            )
+        }
     }
 
+    @Test
+    fun `PlaintextMessage resists zero length attack`()
+    {
+        val zeroLengthAttackMessage = byteArrayOf(0x01, 0x00)   // Decoded length 0
+        assertFailsWith(
+            exceptionClass = IllegalArgumentException::class,
+            block = {
+                PlaintextMessage.fromBytes(zeroLengthAttackMessage)
+            }
+        )
+    }
+
+ 
     @Test
     fun `PlaintextMessage handles UTF-8 text`()
     {
@@ -325,8 +373,8 @@ class RatchetUnitTests
         // Decrypt with same key
         val decryptedMessage = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-        assertEquals(originalMessage.type, decryptedMessage.type)
-        assertArrayEquals(originalMessage.bytes, decryptedMessage.bytes)
+        assertEquals(originalMessage.type, decryptedMessage!!.type)
+        assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
     }
 
     @Test
@@ -406,8 +454,8 @@ class RatchetUnitTests
         // Alice can decrypt with the same key
         val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-        assertEquals(PlaintextMessageType.DATA, decrypted.type)
-        assertEquals("Hello!", String(decrypted.bytes))
+        assertEquals(PlaintextMessageType.DATA, decrypted!!.type)
+        assertEquals("Hello!", String(decrypted!!.bytes))
     }
 
     @Test
@@ -436,8 +484,8 @@ class RatchetUnitTests
         val decrypted1 = Ratchet.decrypt(aliceState1.messageKey!!, ciphertext1)
         val decrypted2 = Ratchet.decrypt(aliceState2.messageKey!!, ciphertext2)
 
-        assertEquals("Message 1", String(decrypted1.bytes))
-        assertEquals("Message 2", String(decrypted2.bytes))
+        assertEquals("Message 1", String(decrypted1!!.bytes))
+        assertEquals("Message 2", String(decrypted2!!.bytes))
 
         // Verify messages can't be decrypted with wrong keys
         try {

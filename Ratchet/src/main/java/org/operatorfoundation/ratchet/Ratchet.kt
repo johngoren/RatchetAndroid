@@ -19,6 +19,7 @@ object Ratchet
 {
     private const val HKDF_INFO = "SHOUT"
     private const val HMAC_ALGORITHM = "HmacSHA256"
+    private const val VALID_KEY_LENGTH = 32
 
     class RatchetSendResult(
         val state: RatchetState,
@@ -35,11 +36,11 @@ object Ratchet
         val publicKeyBytes = publicKey.bytes
 
         // Ensure we have the correct key sizes
-        require(privateKeyBytes.size == 32) { "Private key must be 32 bytes" }
-        require(publicKeyBytes.size == 32) { "Public key must be 32 bytes" }
+        require(privateKeyBytes.size == VALID_KEY_LENGTH) { "Private key must be $VALID_KEY_LENGTH bytes" }
+        require(publicKeyBytes.size == VALID_KEY_LENGTH) { "Public key must be $VALID_KEY_LENGTH bytes" }
 
         // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
-        val sharedSecret = ByteArray(32)
+        val sharedSecret = ByteArray(VALID_KEY_LENGTH)
         org.bouncycastle.math.ec.rfc7748.X25519.scalarMult(
             privateKeyBytes,
             0,
@@ -240,16 +241,22 @@ object Ratchet
      * @param ciphertext The ciphertext to decrypt
      * @return The decrypted plaintext message
      */
-    fun decrypt(key: MessageKey, ciphertext: Ciphertext): PlaintextMessage
+    fun decrypt(key: MessageKey, ciphertext: Ciphertext): PlaintextMessage?
     {
-        // Create AES-GCM key from the message key
-        val aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+        try {
 
-        // Create cipher and decrypt
-        val cipher = org.operatorfoundation.aes.AesCipher()
-        val decryptedBytes = cipher.decrypt(aesKey, ciphertext)
+            // Create AES-GCM key from the message key
+            val aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
 
-        // Deserialize the plaintext message
-        return PlaintextMessage.fromBytes(decryptedBytes)
+            // Create cipher and decrypt
+            val cipher = org.operatorfoundation.aes.AesCipher()
+            val decryptedBytes = cipher.decrypt(aesKey, ciphertext)
+
+            // Deserialize the plaintext message
+            return PlaintextMessage.fromBytes(decryptedBytes)
+        }
+        catch(e: IllegalArgumentException) {
+            return null
+        }
     }
 }
