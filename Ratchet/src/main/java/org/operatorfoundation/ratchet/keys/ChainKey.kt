@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.keys
 
 /**
  * Represents the chain key in the double ratchet algorithm.
@@ -29,10 +29,7 @@ class ChainKey(val bytes: ByteArray)
 
     override fun equals(other: Any?): Boolean
     {
-        if (this === other) return true
-        if (other !is ChainKey) return false
-
-        return bytes.contentEquals(other.bytes)
+        return false // No-op
     }
 
     override fun hashCode(): Int

@@ -5,6 +5,10 @@ import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
+import org.operatorfoundation.ratchet.keys.ChainKey
+import org.operatorfoundation.ratchet.keys.MessageKey
+import org.operatorfoundation.ratchet.keys.RootKey
+import org.operatorfoundation.ratchet.keys.SharedKey
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 

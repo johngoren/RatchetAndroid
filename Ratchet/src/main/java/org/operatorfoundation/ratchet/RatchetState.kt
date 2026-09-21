@@ -2,6 +2,10 @@ package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PublicKey
+import org.operatorfoundation.ratchet.keys.ChainKey
+import org.operatorfoundation.ratchet.keys.MessageKey
+import org.operatorfoundation.ratchet.keys.RootKey
+import org.operatorfoundation.ratchet.keys.SharedKey
 
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.

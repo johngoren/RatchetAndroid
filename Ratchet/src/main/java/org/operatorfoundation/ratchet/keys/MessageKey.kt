@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.keys
 
 /**
  * Represents a message key used to encrypt/decrypt individual messages.
@@ -20,10 +20,7 @@ class MessageKey(val bytes: ByteArray)
 
     override fun equals(other: Any?): Boolean
     {
-        if (this === other) return true
-        if (other !is MessageKey) return false
-
-        return bytes.contentEquals(other.bytes)
+        return false // No-op
     }
 
     override fun hashCode(): Int

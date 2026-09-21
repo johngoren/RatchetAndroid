@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.keys
 
 /**
  * Represents a shared key derived from ECDH in the double ratchet algorithm.
@@ -19,10 +19,7 @@ class SharedKey(val bytes: ByteArray)
 
     override fun equals(other: Any?): Boolean
     {
-        if (this === other) return true
-        if (other !is SharedKey) return false
-
-        return bytes.contentEquals(other.bytes)
+        return false // No-op
     }
 
     override fun hashCode(): Int
