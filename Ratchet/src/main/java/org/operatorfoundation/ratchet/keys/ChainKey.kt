@@ -27,13 +27,4 @@ class ChainKey(bytes: ByteArray): RestrictedKey(bytes)
         }
     }
 
-    override fun equals(other: Any?): Boolean
-    {
-        return false // No-op
-    }
-
-    override fun hashCode(): Int
-    {
-        return bytes.contentHashCode()
-    }
 }

@@ -16,14 +16,5 @@ class SharedKey(bytes: ByteArray): RestrictedKey(bytes)
             return SharedKey(sharedSecret)
         }
     }
-
-    override fun equals(other: Any?): Boolean
-    {
-        return false // No-op
-    }
-
-    override fun hashCode(): Int
-    {
-        return bytes.contentHashCode()
-    }
+    
 }
