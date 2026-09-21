@@ -4,7 +4,7 @@ package org.operatorfoundation.ratchet.keys
  * Represents a message key used to encrypt/decrypt individual messages.
  * Derived from the chain key in the double ratchet algorithm.
  */
-class MessageKey(val bytes: ByteArray)
+class MessageKey(bytes: ByteArray): RestrictedKey(bytes)
 {
     companion object
     {

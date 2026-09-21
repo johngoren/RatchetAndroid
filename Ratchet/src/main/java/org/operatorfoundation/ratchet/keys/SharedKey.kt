@@ -3,7 +3,7 @@ package org.operatorfoundation.ratchet.keys
 /**
  * Represents a shared key derived from ECDH in the double ratchet algorithm.
  */
-class SharedKey(val bytes: ByteArray)
+class SharedKey(bytes: ByteArray): RestrictedKey(bytes)
 {
     companion object
     {
