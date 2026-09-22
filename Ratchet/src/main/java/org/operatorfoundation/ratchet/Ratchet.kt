@@ -29,7 +29,7 @@ object Ratchet
     const val VALID_KEY_LENGTH = 32
 
     class RatchetSendResult(
-        val state: RatchetState,
+        val state: SingleUseRatchetState,
         val ephemeralPublicKeyToSend: Curve25519PublicKey
     )
 
@@ -172,8 +172,8 @@ object Ratchet
         val newKeypair = MADH.generateKeypair()
         val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
         val newState = ratchetInternal(oldState, newKeypair, remoteKey)
-
-        return RatchetSendResult(newState, newKeypair.publicKey)
+        val singleUseNewState = SingleUseRatchetState(newState)
+        return RatchetSendResult(singleUseNewState, newKeypair.publicKey)
     }
 
     /**

@@ -251,25 +251,26 @@ class RatchetUnitTests
 
             // Perform first ratchet with new key
             val result = Ratchet.ratchetForSend(state)
-            val ratchetedState = result.state
+            result.state.use { ratchetedState ->
 
-            // Should now have all ephemeral state
-            assertNotNull(ratchetedState.chainKey)
-            assertNotNull(ratchetedState.sharedKey)
-            assertNotNull(ratchetedState.messageKey)
-            assertNotNull(result.ephemeralPublicKeyToSend)
+                // Should now have all ephemeral state
+                assertNotNull(ratchetedState.chainKey)
+                assertNotNull(ratchetedState.sharedKey)
+                assertNotNull(ratchetedState.messageKey)
+                assertNotNull(result.ephemeralPublicKeyToSend)
 
-            // Message number should increment
-            assertEquals(1, ratchetedState.messageNumber)
+                // Message number should increment
+                assertEquals(1, ratchetedState.messageNumber)
 
-            // Root key should be different from initial
-            assertFalse(state.rootKey.bytes.contentEquals(ratchetedState.rootKey.bytes))
+                // Root key should be different from initial
+                assertFalse(state.rootKey.bytes.contentEquals(ratchetedState.rootKey.bytes))
 
-            // All keys should be 32 bytes
-            assertEquals(32, ratchetedState.chainKey!!.bytes.size)
-            assertEquals(32, ratchetedState.sharedKey!!.bytes.size)
-            assertEquals(32, ratchetedState.messageKey!!.bytes.size)
-            assertEquals(32, result.ephemeralPublicKeyToSend.bytes.size)
+                // All keys should be 32 bytes
+                assertEquals(32, ratchetedState.chainKey!!.bytes.size)
+                assertEquals(32, ratchetedState.sharedKey!!.bytes.size)
+                assertEquals(32, ratchetedState.messageKey!!.bytes.size)
+                assertEquals(32, result.ephemeralPublicKeyToSend.bytes.size)
+            }
         }
     }
 
