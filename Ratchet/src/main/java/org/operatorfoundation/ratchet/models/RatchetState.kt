@@ -1,6 +1,7 @@
 package org.operatorfoundation.ratchet.models
 
 import org.operatorfoundation.madh.Curve25519KeyPair
+import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
@@ -40,7 +41,26 @@ class RatchetState(
         localEphemeralKeypair: Curve25519KeyPair? = this.localEphemeralKeypair,
         remoteEphemeralPublicKey: Curve25519PublicKey? = this.remoteEphemeralPublicKey): RatchetState
     {
-        return RatchetState(localLongtermKeypair, remoteLongtermPublicKey, rootKey, messageNumber, chainKey, sharedKey, messageKey, localEphemeralKeypair, remoteEphemeralPublicKey)
+        val copyOfLocalLongtermKeypair = Curve25519KeyPair(
+            Curve25519PublicKey(localLongtermKeypair.publicKey.bytes),
+            Curve25519PrivateKey(localLongtermKeypair.privateKey.bytes)
+        )
+        val copyOfRemoteLongtermPublicKey = Curve25519PublicKey(remoteLongtermPublicKey.bytes)
+        val copyOfRootKey = RootKey(rootKey.bytes)
+        val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes) } else { null }
+        val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes) } else { null }
+        val copyOfMessageKey = if (messageKey != null) { MessageKey(messageKey.bytes) } else { null }
+        val copyOfLocalEphemeralKeypair = if (localEphemeralKeypair == null) { null } else {
+            Curve25519KeyPair(
+                Curve25519PublicKey(localEphemeralKeypair.publicKey.bytes),
+                Curve25519PrivateKey(localEphemeralKeypair.privateKey.bytes)
+            )
+        }
+        val copyOfRemoteEphemeralPublicKey = if (remoteEphemeralPublicKey == null) { null } else {
+            Curve25519PublicKey(remoteEphemeralPublicKey.bytes)
+        }
+
+        return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey)
     }
 
     override fun close() {

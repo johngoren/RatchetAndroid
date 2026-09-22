@@ -8,7 +8,6 @@ class SingleUseRatchetState(private val newRatchetState: RatchetState): AutoClos
 
     init {
         _ratchetState = newRatchetState.copy()
-        newRatchetState.close() // TODO: Check everything that we need survives.
     }
 
     fun use(block: (RatchetState) -> Unit) {

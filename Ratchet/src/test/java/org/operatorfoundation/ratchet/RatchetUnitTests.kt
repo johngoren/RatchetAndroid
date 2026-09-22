@@ -182,6 +182,30 @@ class RatchetUnitTests
         assertEquals(originalText, decodedText)
     }
 
+    // ========== SingleUseRatchetState Tests ===========
+
+    @Test
+    fun `Single use ratchet state can make a copy that survives destruction of original`() {
+        val aliceKeypair = MADH.generateKeypair()
+        val bobKeypair = MADH.generateKeypair()
+
+        val singleUseRatchetState = Ratchet.newRatchetState(
+            aliceKeypair,
+            bobKeypair.publicKey
+        )
+
+        var copyOfRatchetState: RatchetState? = null
+
+        singleUseRatchetState.use { originalRatchetState ->
+            copyOfRatchetState = originalRatchetState.copy()
+        }
+        singleUseRatchetState.close()
+
+        assert(copyOfRatchetState != null)
+        assert(copyOfRatchetState?.rootKey?.bytes != null)
+
+    }
+
     // ========== RatchetState Tests ==========
 
     @Test

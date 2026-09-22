@@ -9,7 +9,7 @@ import org.operatorfoundation.ratchet.Ratchet.VALID_KEY_LENGTH
 // assume that's the way Assured prefers copies to be consistently made
 
 
-open class RestrictedKey(private val keyBytes: ByteArray): AutoCloseable {
+open class RestrictedKey(private val keyBytes: ByteArray) {
     var isDestroyed: Boolean = false
 
     private val _keyBytes: ByteArray
@@ -41,11 +41,11 @@ open class RestrictedKey(private val keyBytes: ByteArray): AutoCloseable {
         return keyBytes.copyOf()
     }
 
-    override fun close() {
-        if (!isDestroyed) {
-            keyBytes.fill(0)
-            isDestroyed = true
-        }
+    fun close() {
+//        if (!isDestroyed) {
+//            keyBytes.fill(0)
+//            isDestroyed = true
+//        }
     }
 
 //    override fun toString(): String {

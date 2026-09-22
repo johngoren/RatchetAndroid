@@ -60,24 +60,16 @@ class RatchetIntegrationTest
         var aliceRootKey: ByteArray? = null
         var bobRootKey: ByteArray? = null
 
-        try {
-            aliceSingleUseRatchetState.use { aliceState ->
-                aliceRootKey = aliceState.rootKey.bytes
-            }
+        aliceSingleUseRatchetState.use { aliceState ->
+            aliceRootKey = aliceState.rootKey.bytes
+
             bobSingleUseRatchetState.use { bobState ->
                 bobRootKey = bobState.rootKey.bytes
+
+                // Both should derive the same root key (ECDH is commutative)
+                assertArrayEquals(aliceRootKey!!, bobRootKey!!)
             }
         }
-        catch(e: Exception) {
-
-        }
-        finally {
-            aliceSingleUseRatchetState.close()
-            bobSingleUseRatchetState.close()
-        }
-
-        // Both should derive the same root key (ECDH is commutative)
-        assertArrayEquals(aliceRootKey!!, bobRootKey!!)
     }
 
     @Test
