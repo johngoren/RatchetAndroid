@@ -327,23 +327,33 @@ class RatchetUnitTests
             val state1 = Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
 
             // Advance without new keys
-            val state2 = Ratchet.symmetricRatchet(state1)
+            Ratchet.symmetricRatchet(state1).use { state2 ->
 
-            // Message number should increment
-            assertEquals(2, state2.messageNumber)
+                // Message number should increment
+                assertEquals(2, state2.messageNumber)
 
-            // Chain key and message key should change
-            assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-            assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                // Chain key and message key should change
+                assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
 
-            // Shared key and ephemeral keys should stay the same
-            assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
-            assertArrayEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
-            assertArrayEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
-            assertArrayEquals(state1.remoteEphemeralPublicKey?.bytes, state2.remoteEphemeralPublicKey?.bytes)
+                // Shared key and ephemeral keys should stay the same
+                assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
+                assertArrayEquals(
+                    state1.localEphemeralKeypair?.publicKey?.bytes,
+                    state2.localEphemeralKeypair?.publicKey?.bytes
+                )
+                assertArrayEquals(
+                    state1.localEphemeralKeypair?.privateKey?.bytes,
+                    state2.localEphemeralKeypair?.privateKey?.bytes
+                )
+                assertArrayEquals(
+                    state1.remoteEphemeralPublicKey?.bytes,
+                    state2.remoteEphemeralPublicKey?.bytes
+                )
 
-            // Root key should stay the same
-            assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
+                // Root key should stay the same
+                assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
+            }
         }
     }
 
@@ -381,15 +391,21 @@ class RatchetUnitTests
         val bobEphemeralKeypair = MADH.generateKeypair()
 
         singleUseInitialState.use { initialState ->
-            var state = Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
+
+            val state = Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
 
             val messageKeys = mutableListOf(state.messageKey!!.bytes)
 
-            // Generate 5 more message keys
+            var previousState = state
+
+                // Generate 5 more message keys
             repeat(5)
             {
-                state = Ratchet.symmetricRatchet(state)
-                messageKeys.add(state.messageKey!!.bytes)
+
+                Ratchet.symmetricRatchet(previousState).use { newState ->
+                    messageKeys.add(newState.messageKey!!.bytes)
+                    previousState = newState
+                }
             }
 
             // All message keys should be unique
@@ -488,8 +504,10 @@ class RatchetUnitTests
             // Try to decrypt with state2's key (should fail)
             try
             {
-                Ratchet.decrypt(state2.messageKey!!, ciphertext)
-                fail("Should have thrown SecurityException")
+                state2.use { snapshotOfState2 ->
+                    Ratchet.decrypt(snapshotOfState2.messageKey!!, ciphertext)
+                    fail("Should have thrown SecurityException")
+                }
             }
             catch (e: SecurityException)
             {
@@ -553,21 +571,25 @@ class RatchetUnitTests
             // Alice advances her ratchet for message 2
             val aliceState2 = Ratchet.symmetricRatchet(aliceState1)
             val message2 = PlaintextMessage(PlaintextMessageType.DATA, "Message 2".toByteArray())
-            val ciphertext2 = Ratchet.encrypt(aliceState2.messageKey!!, message2)
 
-            // Both messages can be decrypted with their respective keys
-            val decrypted1 = Ratchet.decrypt(aliceState1.messageKey!!, ciphertext1)
-            val decrypted2 = Ratchet.decrypt(aliceState2.messageKey!!, ciphertext2)
+            aliceState2.use { snapshotOfAliceState2 ->
 
-            assertEquals("Message 1", String(decrypted1!!.bytes))
-            assertEquals("Message 2", String(decrypted2!!.bytes))
+                val ciphertext2 = Ratchet.encrypt(snapshotOfAliceState2.messageKey!!, message2)
 
-            // Verify messages can't be decrypted with wrong keys
-            try {
-                Ratchet.decrypt(aliceState2.messageKey!!, ciphertext1)
-                fail("Should not decrypt with wrong key")
-            } catch (e: SecurityException) {
-                // Expected - demonstrates forward secrecy
+                // Both messages can be decrypted with their respective keys
+                val decrypted1 = Ratchet.decrypt(aliceState1.messageKey!!, ciphertext1)
+                val decrypted2 = Ratchet.decrypt(snapshotOfAliceState2.messageKey!!, ciphertext2)
+
+                assertEquals("Message 1", String(decrypted1!!.bytes))
+                assertEquals("Message 2", String(decrypted2!!.bytes))
+
+                // Verify messages can't be decrypted with wrong keys
+                try {
+                    Ratchet.decrypt(snapshotOfAliceState2.messageKey!!, ciphertext1)
+                    fail("Should not decrypt with wrong key")
+                } catch (e: SecurityException) {
+                    // Expected - demonstrates forward secrecy
+                }
             }
         }
     }
@@ -589,9 +611,10 @@ class RatchetUnitTests
 
             // Advance 10 times
             repeat(10) { i ->
-                state = Ratchet.symmetricRatchet(state)
-                assertEquals(i + 2, state.messageNumber)
-                assertNotNull(state.messageKey)
+                Ratchet.symmetricRatchet(state).use { newState ->
+                    assertEquals(i + 2, newState.messageNumber)
+                    assertNotNull(newState.messageKey)
+                }
             }
         }
     }

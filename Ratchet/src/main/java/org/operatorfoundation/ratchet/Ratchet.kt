@@ -198,7 +198,7 @@ object Ratchet
      * @param oldState The current ratchet state
      * @return The updated ratchet state with new chain and message keys
      */
-    fun symmetricRatchet(oldState: RatchetState): RatchetState
+    fun symmetricRatchet(oldState: RatchetState): SingleUseRatchetState
     {
         // Ensure we have a chain key to work with
         requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
@@ -214,11 +214,16 @@ object Ratchet
         val messageHmacOutput = hmac(newChainKey.bytes, newMessageNumber.toString().toByteArray())
         val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
-        return oldState.deepCopy(
+        val newState = oldState.deepCopy(
             messageNumber = newMessageNumber,
             chainKey = newChainKey,
             messageKey = newMessageKey
         )
+
+        oldState.close()
+        // TODO: Zeroize everything else
+
+        return SingleUseRatchetState(newState)
     }
 
     /**

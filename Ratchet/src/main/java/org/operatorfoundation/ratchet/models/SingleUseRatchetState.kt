@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.models
 
+
 class SingleUseRatchetState(newRatchetState: RatchetState): AutoCloseable {
 
     var isDestroyed: Boolean = false
@@ -8,7 +9,6 @@ class SingleUseRatchetState(newRatchetState: RatchetState): AutoCloseable {
 
     init {
         _ratchetState = newRatchetState.deepCopy()
-//        newRatchetState.close()
     }
 
     fun use(block: (RatchetState) -> Unit) {
@@ -18,7 +18,7 @@ class SingleUseRatchetState(newRatchetState: RatchetState): AutoCloseable {
 
     override fun close() {
         isDestroyed = true
-        // TODO: The rest
+        _ratchetState.close()
     }
 
 }
