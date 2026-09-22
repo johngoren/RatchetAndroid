@@ -605,15 +605,18 @@ class RatchetUnitTests
         singleUseInitialState.use { initialState ->
             val bobEphemeralKeypair = MADH.generateKeypair()
 
-            var state = Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
+            val state = Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
 
             assertEquals(1, state.messageNumber)
 
+            var previousState = state
+
             // Advance 10 times
             repeat(10) { i ->
-                Ratchet.symmetricRatchet(state).use { newState ->
+                Ratchet.symmetricRatchet(previousState).use { newState ->
                     assertEquals(i + 2, newState.messageNumber)
                     assertNotNull(newState.messageKey)
+                    previousState = newState
                 }
             }
         }

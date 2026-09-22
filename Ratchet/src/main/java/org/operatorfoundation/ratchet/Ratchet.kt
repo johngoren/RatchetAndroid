@@ -220,7 +220,6 @@ object Ratchet
             messageKey = newMessageKey
         )
 
-        oldState.close()
         // TODO: Zeroize everything else
 
         return SingleUseRatchetState(newState)
