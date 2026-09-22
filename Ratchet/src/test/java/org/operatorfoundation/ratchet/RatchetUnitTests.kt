@@ -224,8 +224,9 @@ class RatchetUnitTests
             // Initial state should have longterm keys and root key
             assertNotNull(state.rootKey)
             assertEquals(32, state.rootKey.bytes.size)
-            assertEquals(aliceKeypair, state.localLongtermKeypair)
-            assertEquals(bobKeypair.publicKey, state.remoteLongtermPublicKey)
+            assertEquals(aliceKeypair.publicKey.bytes, state.localLongtermKeypair.publicKey.bytes)
+            assertEquals(aliceKeypair.privateKey.bytes, state.localLongtermKeypair.privateKey.bytes)
+            assertEquals(bobKeypair.publicKey.bytes, state.remoteLongtermPublicKey.bytes)
 
             // Ephemeral state should be null/default
             assertEquals(0, state.messageNumber)
@@ -337,7 +338,8 @@ class RatchetUnitTests
 
             // Shared key and ephemeral keys should stay the same
             assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
-            assertEquals(state1.localEphemeralKeypair, state2.localEphemeralKeypair)
+            assertEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
+            assertEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
             assertEquals(state1.remoteEphemeralPublicKey, state2.remoteEphemeralPublicKey)
 
             // Root key should stay the same
