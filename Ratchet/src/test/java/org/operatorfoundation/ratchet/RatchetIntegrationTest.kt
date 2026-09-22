@@ -312,21 +312,22 @@ class RatchetIntegrationTest
         singleUseInitialState.use { initialState ->
             // Perform first DH ratchet with ephemeral keys
             val result1 = Ratchet.ratchetForSend(initialState)
-            val state1 = result1.state
+            result1.state.use { state1 ->
 
-            // Perform second DH ratchet with new ephemeral keys
-            val result2 = Ratchet.ratchetForSend(state1)
-            val state2 = result2.state
+                // Perform second DH ratchet with new ephemeral keys
+                val result2 = Ratchet.ratchetForSend(state1)
+                result2.state.use { state2 ->
 
-            // All keys should be completely different (forward secrecy)
-            assertFalse(state1.rootKey.bytes.contentEquals(state2.rootKey.bytes))
-            assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-            assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
-            assertFalse(state1.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
+                    // All keys should be completely different (forward secrecy)
+                    assertFalse(state1.rootKey.bytes.contentEquals(state2.rootKey.bytes))
+                    assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                    assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                    assertFalse(state1.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
 
-            // The ephemeral keys should be different
-            assertFalse(result1.ephemeralPublicKeyToSend.bytes.contentEquals(result2.ephemeralPublicKeyToSend.bytes))
-
+                    // The ephemeral keys should be different
+                    assertFalse(result1.ephemeralPublicKeyToSend.bytes.contentEquals(result2.ephemeralPublicKeyToSend.bytes))
+                }
+            }
         }
    }
 
@@ -343,23 +344,24 @@ class RatchetIntegrationTest
 
         singleUseInitialState.use { initialState ->
             val result = Ratchet.ratchetForSend(initialState)
-            var state = result.state
 
-            val message = PlaintextMessage(
-                type = PlaintextMessageType.UNCOMPRESSED_TEXT,
-                bytes = "Same message".toByteArray()
-            )
+            result.state.use { _state ->
 
-            val ciphertext1 = Ratchet.encrypt(state.messageKey!!, message)
+                val message = PlaintextMessage(
+                    type = PlaintextMessageType.UNCOMPRESSED_TEXT,
+                    bytes = "Same message".toByteArray()
+                )
 
-            // Advance ratchet to get new message key
-            Ratchet.symmetricRatchet(state).use { newState ->
-                state = newState
-                val ciphertext2 = Ratchet.encrypt(state.messageKey!!, message)
+                val ciphertext1 = Ratchet.encrypt(_state.messageKey!!, message)
 
-                // Same plaintext with different keys should produce different ciphertexts
-                assertFalse(ciphertext1.encrypted.contentEquals(ciphertext2.encrypted))
-                assertFalse(ciphertext1.nonce.bytes.contentEquals(ciphertext2.nonce.bytes))
+                // Advance ratchet to get new message key
+                Ratchet.symmetricRatchet(_state).use { newState ->
+                    val ciphertext2 = Ratchet.encrypt(newState.messageKey!!, message)
+
+                    // Same plaintext with different keys should produce different ciphertexts
+                    assertFalse(ciphertext1.encrypted.contentEquals(ciphertext2.encrypted))
+                    assertFalse(ciphertext1.nonce.bytes.contentEquals(ciphertext2.nonce.bytes))
+                }
             }
         }
     }
@@ -378,25 +380,25 @@ class RatchetIntegrationTest
         singleUseInitialState.use { initialState ->
 
             val result = Ratchet.ratchetForSend(initialState)
-            val state = result.state
+            result.state.use { state ->
 
-            val messageTypes = listOf(
-                PlaintextMessageType.HANDSHAKE,
-                PlaintextMessageType.RATCHET,
-                PlaintextMessageType.ERROR,
-                PlaintextMessageType.COMPRESSED_TEXT,
-                PlaintextMessageType.UNCOMPRESSED_TEXT,
-                PlaintextMessageType.DATA
-            )
+                val messageTypes = listOf(
+                    PlaintextMessageType.HANDSHAKE,
+                    PlaintextMessageType.RATCHET,
+                    PlaintextMessageType.ERROR,
+                    PlaintextMessageType.COMPRESSED_TEXT,
+                    PlaintextMessageType.UNCOMPRESSED_TEXT,
+                    PlaintextMessageType.DATA
+                )
 
-            for (messageType in messageTypes)
-            {
-                val message = PlaintextMessage(messageType, "test".toByteArray())
-                val ciphertext = Ratchet.encrypt(state.messageKey!!, message)
-                val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
+                for (messageType in messageTypes) {
+                    val message = PlaintextMessage(messageType, "test".toByteArray())
+                    val ciphertext = Ratchet.encrypt(state.messageKey!!, message)
+                    val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
 
-                assertEquals(messageType, decrypted!!.type)
-                assertArrayEquals("test".toByteArray(), decrypted!!.bytes)
+                    assertEquals(messageType, decrypted!!.type)
+                    assertArrayEquals("test".toByteArray(), decrypted!!.bytes)
+                }
             }
         }
     }
@@ -418,15 +420,19 @@ class RatchetIntegrationTest
 
             // DH ratchet increments to 1
             val result = Ratchet.ratchetForSend(initialState)
-            var state = result.state
-            assertEquals(1, state.messageNumber)
 
-            // Symmetric ratchets increment by 1 each
-            for (i in 2..10) {
-                Ratchet.symmetricRatchet(state).use { newState ->
-                    state = newState
-                    assertEquals(i, state.messageNumber)
+            var previousState: RatchetState? = null
 
+            result.state.use { state ->
+                assertEquals(1, state.messageNumber)
+
+                // Symmetric ratchets increment by 1 each
+                for (i in 2..10) {
+                    Ratchet.symmetricRatchet(previousState!!).use { newState ->
+                        previousState = newState
+                        assertEquals(i, newState.messageNumber)
+
+                    }
                 }
             }
         }
@@ -446,22 +452,23 @@ class RatchetIntegrationTest
         singleUseInitialState.use { initialState ->
 
             val result = Ratchet.ratchetForSend(initialState)
-            val state1 = result.state
-            val state2 = Ratchet.symmetricRatchet(state1).use { state2 ->
-                val message = PlaintextMessage(
-                    PlaintextMessageType.DATA,
-                    "Secret".toByteArray()
-                )
+            result.state.use { state1 ->
+                val state2 = Ratchet.symmetricRatchet(state1).use { state2 ->
+                    val message = PlaintextMessage(
+                        PlaintextMessageType.DATA,
+                        "Secret".toByteArray()
+                    )
 
-                // Encrypt with state1's key
-                val ciphertext = Ratchet.encrypt(state1.messageKey!!, message)
+                    // Encrypt with state1's key
+                    val ciphertext = Ratchet.encrypt(state1.messageKey!!, message)
 
-                // Try to decrypt with state2's key (should fail)
-                try {
-                    Ratchet.decrypt(state2.messageKey!!, ciphertext)
-                    fail("Should have thrown SecurityException")
-                } catch (e: SecurityException) {
-                    assertTrue(e.message!!.contains("Authentication"))
+                    // Try to decrypt with state2's key (should fail)
+                    try {
+                        Ratchet.decrypt(state2.messageKey!!, ciphertext)
+                        fail("Should have thrown SecurityException")
+                    } catch (e: SecurityException) {
+                        assertTrue(e.message!!.contains("Authentication"))
+                    }
                 }
             }
         }
