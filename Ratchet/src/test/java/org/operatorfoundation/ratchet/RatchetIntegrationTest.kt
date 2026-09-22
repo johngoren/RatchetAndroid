@@ -163,9 +163,9 @@ class RatchetIntegrationTest
             // Root key, shared key, and ephemeral keys should remain unchanged
             assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
             assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
-            assertEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
-            assertEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
-            assertEquals(state1.remoteEphemeralPublicKey, state2.remoteEphemeralPublicKey)
+            assertArrayEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
+            assertArrayEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
+            assertArrayEquals(state1.remoteEphemeralPublicKey?.bytes, state2.remoteEphemeralPublicKey?.bytes)
 
             // Message number should increment
             assertEquals(2, state2.messageNumber)

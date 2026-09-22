@@ -30,7 +30,7 @@ class RatchetState(
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null
 ): AutoCloseable {
 
-    fun copy(
+    fun deepCopy(
         localLongtermKeypair: Curve25519KeyPair = this.localLongtermKeypair,
         remoteLongtermPublicKey: Curve25519PublicKey = this.remoteLongtermPublicKey,
         rootKey: RootKey = this.rootKey,
@@ -42,22 +42,22 @@ class RatchetState(
         remoteEphemeralPublicKey: Curve25519PublicKey? = this.remoteEphemeralPublicKey): RatchetState
     {
         val copyOfLocalLongtermKeypair = Curve25519KeyPair(
-            Curve25519PublicKey(localLongtermKeypair.publicKey.bytes),
-            Curve25519PrivateKey(localLongtermKeypair.privateKey.bytes)
+            Curve25519PublicKey(localLongtermKeypair.publicKey.bytes.copyOf()),
+            Curve25519PrivateKey(localLongtermKeypair.privateKey.bytes.copyOf())
         )
-        val copyOfRemoteLongtermPublicKey = Curve25519PublicKey(remoteLongtermPublicKey.bytes)
-        val copyOfRootKey = RootKey(rootKey.bytes)
-        val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes) } else { null }
-        val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes) } else { null }
-        val copyOfMessageKey = if (messageKey != null) { MessageKey(messageKey.bytes) } else { null }
+        val copyOfRemoteLongtermPublicKey = Curve25519PublicKey(remoteLongtermPublicKey.bytes.copyOf())
+        val copyOfRootKey = RootKey(rootKey.bytes.copyOf())
+        val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes.copyOf()) } else { null }
+        val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes.copyOf()) } else { null }
+        val copyOfMessageKey = if (messageKey != null) { MessageKey(messageKey.bytes.copyOf()) } else { null }
         val copyOfLocalEphemeralKeypair = if (localEphemeralKeypair == null) { null } else {
             Curve25519KeyPair(
-                Curve25519PublicKey(localEphemeralKeypair.publicKey.bytes),
-                Curve25519PrivateKey(localEphemeralKeypair.privateKey.bytes)
+                Curve25519PublicKey(localEphemeralKeypair.publicKey.bytes.copyOf()),
+                Curve25519PrivateKey(localEphemeralKeypair.privateKey.bytes.copyOf())
             )
         }
         val copyOfRemoteEphemeralPublicKey = if (remoteEphemeralPublicKey == null) { null } else {
-            Curve25519PublicKey(remoteEphemeralPublicKey.bytes)
+            Curve25519PublicKey(remoteEphemeralPublicKey.bytes.copyOf())
         }
 
         return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey)

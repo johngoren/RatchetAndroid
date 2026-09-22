@@ -1,13 +1,14 @@
 package org.operatorfoundation.ratchet.models
 
-class SingleUseRatchetState(private val newRatchetState: RatchetState): AutoCloseable {
+class SingleUseRatchetState(newRatchetState: RatchetState): AutoCloseable {
 
     var isDestroyed: Boolean = false
 
     private val _ratchetState: RatchetState
 
     init {
-        _ratchetState = newRatchetState.copy()
+        _ratchetState = newRatchetState.deepCopy()
+//        newRatchetState.close()
     }
 
     fun use(block: (RatchetState) -> Unit) {
@@ -16,7 +17,8 @@ class SingleUseRatchetState(private val newRatchetState: RatchetState): AutoClos
     }
 
     override fun close() {
-        _ratchetState.close()
+        isDestroyed = true
+        // TODO: The rest
     }
 
 }

@@ -214,7 +214,7 @@ object Ratchet
         val messageHmacOutput = hmac(newChainKey.bytes, newMessageNumber.toString().toByteArray())
         val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
-        return oldState.copy(
+        return oldState.deepCopy(
             messageNumber = newMessageNumber,
             chainKey = newChainKey,
             messageKey = newMessageKey

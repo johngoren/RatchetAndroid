@@ -197,7 +197,7 @@ class RatchetUnitTests
         var copyOfRatchetState: RatchetState? = null
 
         singleUseRatchetState.use { originalRatchetState ->
-            copyOfRatchetState = originalRatchetState.copy()
+            copyOfRatchetState = originalRatchetState.deepCopy()
         }
         singleUseRatchetState.close()
 
@@ -224,9 +224,9 @@ class RatchetUnitTests
             // Initial state should have longterm keys and root key
             assertNotNull(state.rootKey)
             assertEquals(32, state.rootKey.bytes.size)
-            assertEquals(aliceKeypair.publicKey.bytes, state.localLongtermKeypair.publicKey.bytes)
-            assertEquals(aliceKeypair.privateKey.bytes, state.localLongtermKeypair.privateKey.bytes)
-            assertEquals(bobKeypair.publicKey.bytes, state.remoteLongtermPublicKey.bytes)
+            assertArrayEquals(aliceKeypair.publicKey.bytes, state.localLongtermKeypair.publicKey.bytes)
+            assertArrayEquals(aliceKeypair.privateKey.bytes, state.localLongtermKeypair.privateKey.bytes)
+            assertArrayEquals(bobKeypair.publicKey.bytes, state.remoteLongtermPublicKey.bytes)
 
             // Ephemeral state should be null/default
             assertEquals(0, state.messageNumber)
@@ -338,9 +338,9 @@ class RatchetUnitTests
 
             // Shared key and ephemeral keys should stay the same
             assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
-            assertEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
-            assertEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
-            assertEquals(state1.remoteEphemeralPublicKey, state2.remoteEphemeralPublicKey)
+            assertArrayEquals(state1.localEphemeralKeypair?.publicKey?.bytes, state2.localEphemeralKeypair?.publicKey?.bytes)
+            assertArrayEquals(state1.localEphemeralKeypair?.privateKey?.bytes, state2.localEphemeralKeypair?.privateKey?.bytes)
+            assertArrayEquals(state1.remoteEphemeralPublicKey?.bytes, state2.remoteEphemeralPublicKey?.bytes)
 
             // Root key should stay the same
             assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
