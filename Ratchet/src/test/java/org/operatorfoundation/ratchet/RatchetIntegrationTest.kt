@@ -95,16 +95,17 @@ class RatchetIntegrationTest
                 // Root key should change
                 assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
 
+                // All keys should be created after DH ratchet
+                assertNotNull(newState!!.chainKey)
+                assertNotNull(newState.sharedKey)
+                assertNotNull(newState.messageKey)
+
+
+                // Message number should increment
+                assertEquals(1, newState.messageNumber)
             }
 
-            // All keys should be created after DH ratchet
-            assertNotNull(newState!!.chainKey)
-            assertNotNull(newState.sharedKey)
-            assertNotNull(newState.messageKey)
 
-
-            // Message number should increment
-            assertEquals(1, newState.messageNumber)
         }
 
     }
@@ -123,19 +124,20 @@ class RatchetIntegrationTest
 
         singleUseInitialState.use { initialState ->
             val senderEphemeralKey = MADH.generateKeypair().publicKey
-            val newState = Ratchet.ratchetForReceive(initialState, senderEphemeralKey)
+            Ratchet.ratchetForReceive(initialState, senderEphemeralKey).use { newState ->
 
-            // All keys should be created after DH ratchet
-            assertNotNull(newState.chainKey)
-            assertNotNull(newState.sharedKey)
-            assertNotNull(newState.messageKey)
-            assertNotNull(newState.remoteEphemeralPublicKey)
+                // All keys should be created after DH ratchet
+                assertNotNull(newState.chainKey)
+                assertNotNull(newState.sharedKey)
+                assertNotNull(newState.messageKey)
+                assertNotNull(newState.remoteEphemeralPublicKey)
 
-            // Root key should change
-            assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
+                // Root key should change
+                assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
 
-            // Message number should increment
-            assertEquals(1, newState.messageNumber)
+                // Message number should increment
+                assertEquals(1, newState.messageNumber)
+            }
         }
 
 
@@ -155,32 +157,32 @@ class RatchetIntegrationTest
 
         singleUseInitialState.use { initialState ->
             val senderEphemeralKey = MADH.generateKeypair().publicKey
-            val state1 = Ratchet.ratchetForReceive(initialState, senderEphemeralKey)
+            Ratchet.ratchetForReceive(initialState, senderEphemeralKey).use { state1 ->
 
             Ratchet.symmetricRatchet(state1).use { state2 ->
+                    // Chain and message keys should change (symmetric ratchet)
+                    assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                    assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
 
-                // Chain and message keys should change (symmetric ratchet)
-                assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                    // Root key, shared key, and ephemeral keys should remain unchanged
+                    assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
+                    assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
+                    assertArrayEquals(
+                        state1.localEphemeralKeypair?.publicKey?.bytes,
+                        state2.localEphemeralKeypair?.publicKey?.bytes
+                    )
+                    assertArrayEquals(
+                        state1.localEphemeralKeypair?.privateKey?.bytes,
+                        state2.localEphemeralKeypair?.privateKey?.bytes
+                    )
+                    assertArrayEquals(
+                        state1.remoteEphemeralPublicKey?.bytes,
+                        state2.remoteEphemeralPublicKey?.bytes
+                    )
 
-                // Root key, shared key, and ephemeral keys should remain unchanged
-                assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
-                assertArrayEquals(state1.sharedKey!!.bytes, state2.sharedKey!!.bytes)
-                assertArrayEquals(
-                    state1.localEphemeralKeypair?.publicKey?.bytes,
-                    state2.localEphemeralKeypair?.publicKey?.bytes
-                )
-                assertArrayEquals(
-                    state1.localEphemeralKeypair?.privateKey?.bytes,
-                    state2.localEphemeralKeypair?.privateKey?.bytes
-                )
-                assertArrayEquals(
-                    state1.remoteEphemeralPublicKey?.bytes,
-                    state2.remoteEphemeralPublicKey?.bytes
-                )
-
-                // Message number should increment
-                assertEquals(2, state2.messageNumber)
+                    // Message number should increment
+                    assertEquals(2, state2.messageNumber)
+                }
             }
         }
 

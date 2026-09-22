@@ -184,10 +184,11 @@ object Ratchet
      * @param senderEphemeralPublicKey The ephemeral public key received from the sender
      * @return The updated ratchet state
      */
-    fun ratchetForReceive(oldState: RatchetState, senderEphemeralPublicKey: Curve25519PublicKey): RatchetState
+    fun ratchetForReceive(oldState: RatchetState, senderEphemeralPublicKey: Curve25519PublicKey): SingleUseRatchetState
     {
         val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
-        return ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey)
+        val newState = ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey)
+        return SingleUseRatchetState(newState)
     }
 
     /**
