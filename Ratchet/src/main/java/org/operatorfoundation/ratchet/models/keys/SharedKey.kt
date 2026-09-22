@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet.keys
+package org.operatorfoundation.ratchet.models.keys
 
 /**
  * Represents a shared key derived from ECDH in the double ratchet algorithm.

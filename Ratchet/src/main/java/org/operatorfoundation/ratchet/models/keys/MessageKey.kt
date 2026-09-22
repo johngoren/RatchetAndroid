@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet.keys
+package org.operatorfoundation.ratchet.models.keys
 
 /**
  * Represents a message key used to encrypt/decrypt individual messages.

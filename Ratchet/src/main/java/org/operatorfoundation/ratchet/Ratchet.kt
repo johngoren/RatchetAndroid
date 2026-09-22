@@ -5,10 +5,13 @@ import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
-import org.operatorfoundation.ratchet.keys.ChainKey
-import org.operatorfoundation.ratchet.keys.MessageKey
-import org.operatorfoundation.ratchet.keys.RootKey
-import org.operatorfoundation.ratchet.keys.SharedKey
+import org.operatorfoundation.ratchet.models.keys.ChainKey
+import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.models.keys.RootKey
+import org.operatorfoundation.ratchet.models.keys.SharedKey
+import org.operatorfoundation.ratchet.models.PlaintextMessage
+import org.operatorfoundation.ratchet.models.RatchetState
+import org.operatorfoundation.ratchet.models.SingleUseRatchetState
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -23,7 +26,7 @@ object Ratchet
 {
     private const val HKDF_INFO = "SHOUT"
     private const val HMAC_ALGORITHM = "HmacSHA256"
-    private const val VALID_KEY_LENGTH = 32
+    const val VALID_KEY_LENGTH = 32
 
     class RatchetSendResult(
         val state: RatchetState,
@@ -100,18 +103,20 @@ object Ratchet
     fun newRatchetState(
         localLongtermKeypair: Curve25519KeyPair,
         remoteLongtermPublicKey: Curve25519PublicKey
-    ): RatchetState
+    ): SingleUseRatchetState
     {
         // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
         val sharedSecret = ecdh(localLongtermKeypair.privateKey, remoteLongtermPublicKey)
         val initialRootKey = RootKey.fromECDH(sharedSecret)
 
         // Return initial state with defaults for optional fields
-        return RatchetState(
+        val newRatchetState = RatchetState(
             localLongtermKeypair = localLongtermKeypair,
             remoteLongtermPublicKey = remoteLongtermPublicKey,
             rootKey = initialRootKey
         )
+
+        return SingleUseRatchetState(newRatchetState)
     }
 
     /**

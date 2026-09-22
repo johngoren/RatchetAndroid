@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.models
 
 import java.nio.ByteBuffer
 

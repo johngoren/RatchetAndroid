@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.models
 
 /**
  * Enumeration of plaintext message types in the Ratchet protocol.

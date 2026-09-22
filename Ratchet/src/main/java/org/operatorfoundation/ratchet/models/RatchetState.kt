@@ -1,11 +1,11 @@
-package org.operatorfoundation.ratchet
+package org.operatorfoundation.ratchet.models
 
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.ratchet.keys.ChainKey
-import org.operatorfoundation.ratchet.keys.MessageKey
-import org.operatorfoundation.ratchet.keys.RootKey
-import org.operatorfoundation.ratchet.keys.SharedKey
+import org.operatorfoundation.ratchet.models.keys.ChainKey
+import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.models.keys.RootKey
+import org.operatorfoundation.ratchet.models.keys.SharedKey
 
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.
@@ -27,7 +27,7 @@ class RatchetState(
     val messageKey: MessageKey? = null,
     val localEphemeralKeypair: Curve25519KeyPair? = null,
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null
-) {
+): AutoCloseable {
 
     fun copy(
         localLongtermKeypair: Curve25519KeyPair = this.localLongtermKeypair,
@@ -41,5 +41,17 @@ class RatchetState(
         remoteEphemeralPublicKey: Curve25519PublicKey? = this.remoteEphemeralPublicKey): RatchetState
     {
         return RatchetState(localLongtermKeypair, remoteLongtermPublicKey, rootKey, messageNumber, chainKey, sharedKey, messageKey, localEphemeralKeypair, remoteEphemeralPublicKey)
+    }
+
+    override fun close() {
+        localLongtermKeypair.publicKey.bytes.fill(0)
+        localLongtermKeypair.privateKey.bytes.fill(0)
+        rootKey.close()
+        chainKey?.close()
+        sharedKey?.close()
+        messageKey?.close()
+        localEphemeralKeypair?.publicKey?.bytes?.fill(0)
+        localEphemeralKeypair?.privateKey?.bytes?.fill(0)
+        remoteEphemeralPublicKey?.bytes?.fill(0)
     }
 }

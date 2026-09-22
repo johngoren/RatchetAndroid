@@ -1,4 +1,6 @@
-package org.operatorfoundation.ratchet.keys
+package org.operatorfoundation.ratchet.models.keys
+
+import org.operatorfoundation.ratchet.Ratchet.VALID_KEY_LENGTH
 
 
 // TODO: Make bytes private and access only through use()
@@ -6,32 +8,51 @@ package org.operatorfoundation.ratchet.keys
 // TODO: The copyOf here returns a copy of a primitive, right? We can
 // assume that's the way Assured prefers copies to be consistently made
 
-abstract class RestrictedKey(val bytes: ByteArray): AutoCloseable {
 
+open class RestrictedKey(private val keyBytes: ByteArray): AutoCloseable {
     var isDestroyed: Boolean = false
+
+    private val _keyBytes: ByteArray
+
+    init {
+        require(keyBytes.size == VALID_KEY_LENGTH) {
+            "AES-256 key must be $VALID_KEY_LENGTH bytes"
+        }
+        _keyBytes = keyBytes
+    }
+
+    // TODO: Replace with use block exclusively
+    val bytes: ByteArray
+        get() {
+            check(!isDestroyed) { "Key has been destroyed "}
+            return keyBytes.copyOf()
+        }
+
 
     fun use(block: (ByteArray)->Unit) {
         check(!isDestroyed) { "Key has been destroyed "}
         if (!isDestroyed) {
-            block(bytes)
+            block(keyBytes)
         }
     }
 
     fun copyBytes(): ByteArray {
         check(!isDestroyed) { "Key has been destroyed "}
-        return bytes.copyOf()
+        return keyBytes.copyOf()
     }
 
     override fun close() {
         if (!isDestroyed) {
-            bytes.fill(0)
+            keyBytes.fill(0)
             isDestroyed = true
         }
     }
 
-    override fun toString(): String {
-        return "Key redacted for security"
-    }
+//    override fun toString(): String {
+//        return this.toString()
+////        return "Symmetric key" +
+////                " redacted for security"
+//    }
 
     override fun equals(other: Any?): Boolean
     {

@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet.keys
+package org.operatorfoundation.ratchet.models.keys
 
 /**
  * Represents the root key in the double ratchet algorithm.

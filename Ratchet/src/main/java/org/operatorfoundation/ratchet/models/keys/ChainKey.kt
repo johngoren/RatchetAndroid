@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet.keys
+package org.operatorfoundation.ratchet.models.keys
 
 /**
  * Represents the chain key in the double ratchet algorithm.
