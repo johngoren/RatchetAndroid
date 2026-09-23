@@ -179,17 +179,17 @@ object Ratchet
     {
         var result: SecureRatchetState? = null
 
-        oldState.use { oldState ->
+        oldState.use { oldStateSnapshot ->
 
             // Ensure we have a chain key to work with
-            requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
+            requireNotNull(oldStateSnapshot.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
 
             // Increment message number
-            val newMessageNumber = oldState.messageNumber + 1
+            val newMessageNumber = oldStateSnapshot.messageNumber + 1
 
             // Derive new chain key: C_n = HMAC(C_{n-1}, n)
             val chainHmacOutput =
-                performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
+                performHMAC(oldStateSnapshot.chainKey.bytes, newMessageNumber.toString().toByteArray())
             val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
 
             // Derive new message key: M_n = HMAC(C_n, n)
@@ -197,7 +197,7 @@ object Ratchet
                 performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
             val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
-            val newState = oldState.deepCopy(
+            val newState = oldStateSnapshot.deepCopy(
                 messageNumber = newMessageNumber,
                 chainKey = newChainKey,
                 messageKey = newMessageKey
