@@ -13,10 +13,16 @@ class RootKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
         /**
          * Create a RootKey from ECDH result
          */
-        fun fromECDH(sharedSecret: ByteArray): RootKey
+        fun fromECDH(sharedSecret: Secret): RootKey
         {
-            require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
-            return RootKey(sharedSecret)
+            var rootKey: RootKey? = null
+
+            sharedSecret.use { sharedSecret ->
+                require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
+                rootKey = RootKey(sharedSecret)
+            }
+
+            return rootKey!!
         }
 
         /**

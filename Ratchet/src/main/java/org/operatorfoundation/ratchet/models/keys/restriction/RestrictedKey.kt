@@ -19,7 +19,7 @@ open class RestrictedKey(private val keyBytes: ByteArray) {
     val bytes: ByteArray
         get() {
             check(!isDestroyed) { "Key has been destroyed "}
-            return bytes.copyOf()
+            return _keyBytes.copyOf()
         }
 
 

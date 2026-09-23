@@ -12,10 +12,15 @@ class SharedKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
         /**
          * Create a SharedKey from ECDH result
          */
-        fun fromECDH(sharedSecret: ByteArray): SharedKey
-        {
-            require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
-            return SharedKey(sharedSecret)
+        fun fromECDH(sharedSecret: Secret): SharedKey {
+            var sharedKey: SharedKey? = null
+
+            sharedSecret.use { sharedSecret ->
+                require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
+                sharedKey = SharedKey(sharedSecret)
+            }
+
+            return sharedKey!!
         }
     }
     

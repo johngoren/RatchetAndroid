@@ -12,6 +12,7 @@ import org.operatorfoundation.ratchet.models.keys.SharedKey
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
+import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -77,38 +78,45 @@ object Ratchet
      * @return The updated ratchet state
      */
     private fun ratchetInternal(
-        oldState: RatchetState,
+        oldState: SecureRatchetState,
         localKeypair: Curve25519KeyPair,
         remotePublicKey: Curve25519PublicKey
     ): SecureRatchetState
     {
-        // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-        val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
-        val sharedKey = SharedKey.fromECDH(sharedSecret)
+        var newRatchetState: SecureRatchetState? = null
 
-        // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
-        val hkdfOutput = hkdf(oldState.rootKey.bytes, sharedSecret, HKDF_INFO)
-        val newRootKey = RootKey.fromHKDF(hkdfOutput)
-        val chainKey = ChainKey.fromHKDF(hkdfOutput)
+        oldState.use { oldState ->
 
-        // Increment message number and derive message key: M_n = HMAC(C_n, n)
-        val newMessageNumber = oldState.messageNumber + 1
-        val hmacOutput = hmac(chainKey.bytes, newMessageNumber.toString().toByteArray())
-        val messageKey = MessageKey.fromHMAC(hmacOutput)
+            // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
+            val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
+            val sharedKey = SharedKey.fromECDH(sharedSecret)
 
-        val newState = RatchetState(
-            localLongtermKeypair = oldState.localLongtermKeypair,
-            remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
-            rootKey = newRootKey,
-            messageNumber = newMessageNumber,
-            chainKey = chainKey,
-            sharedKey = sharedKey,
-            messageKey = messageKey,
-            localEphemeralKeypair = localKeypair,
-            remoteEphemeralPublicKey = remotePublicKey
-        )
+            // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
+            val hkdfOutput = performHKDF(oldState.rootKey.bytes, sharedSecret, HKDF_INFO)
+            val newRootKey = RootKey.fromHKDF(hkdfOutput)
+            val chainKey = ChainKey.fromHKDF(hkdfOutput)
 
-        return SecureRatchetState(newState)
+            // Increment message number and derive message key: M_n = HMAC(C_n, n)
+            val newMessageNumber = oldState.messageNumber + 1
+            val hmacOutput = performHMAC(chainKey.bytes, newMessageNumber.toString().toByteArray())
+            val messageKey = MessageKey.fromHMAC(hmacOutput)
+
+            val newState = RatchetState(
+                localLongtermKeypair = oldState.localLongtermKeypair,
+                remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
+                rootKey = newRootKey,
+                messageNumber = newMessageNumber,
+                chainKey = chainKey,
+                sharedKey = sharedKey,
+                messageKey = messageKey,
+                localEphemeralKeypair = localKeypair,
+                remoteEphemeralPublicKey = remotePublicKey
+            )
+
+            newRatchetState = SecureRatchetState(newState)
+        }
+
+        return newRatchetState ?: throw Exception("Null ratchet state")
     }
 
     class RatchetSendResult(
@@ -123,16 +131,19 @@ object Ratchet
      * @param oldState The current ratchet state
      * @return Result containing the new state and the ephemeral public key to send
      */
-    fun ratchetForSend(oldState: RatchetState): RatchetSendResult
+    fun ratchetForSend(oldState: SecureRatchetState): RatchetSendResult
     {
-        val newKeypair = MADH.generateKeypair()
-        val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
         var result: RatchetSendResult? = null
-        ratchetInternal(oldState, newKeypair, remoteKey).use { newState ->
-            val singleUseNewState = SecureRatchetState(newState)
-            result = RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+
+        oldState.use { oldState ->
+            val newKeypair = MADH.generateKeypair()
+            val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
+            ratchetInternal(SecureRatchetState(oldState), newKeypair, remoteKey).use { newState ->
+                val singleUseNewState = SecureRatchetState(newState)
+                result = RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+            }
         }
-        return result!!
+        return result ?: throw Exception("Null ratchet send result")
     }
 
     /**
@@ -143,14 +154,17 @@ object Ratchet
      * @param senderEphemeralPublicKey The ephemeral public key received from the sender
      * @return The updated ratchet state
      */
-    fun ratchetForReceive(oldState: RatchetState, senderEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState
+    fun ratchetForReceive(oldStateSecure: SecureRatchetState, senderEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState
     {
-        val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
-        var newSecureState: SecureRatchetState? = null
-        ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey).use { newState ->
-            newSecureState = SecureRatchetState(newState)
+        var result: SecureRatchetState? = null
+
+        oldStateSecure.use { oldState ->
+            val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
+            ratchetInternal(oldStateSecure, localKeypair, senderEphemeralPublicKey).use { newState ->
+                result = SecureRatchetState(newState)
+            }
         }
-        return newSecureState!!
+        return result ?: throw Exception("Null ratchet state")
     }
 
     /**
@@ -161,31 +175,40 @@ object Ratchet
      * @param oldState The current ratchet state
      * @return The updated ratchet state with new chain and message keys
      */
-    fun symmetricRatchet(oldState: RatchetState): SecureRatchetState
+    fun symmetricRatchet(oldState: SecureRatchetState): SecureRatchetState
     {
-        // Ensure we have a chain key to work with
-        requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
+        var result: SecureRatchetState? = null
 
-        // Increment message number
-        val newMessageNumber = oldState.messageNumber + 1
+        oldState.use { oldState ->
 
-        // Derive new chain key: C_n = HMAC(C_{n-1}, n)
-        val chainHmacOutput = hmac(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
-        val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
+            // Ensure we have a chain key to work with
+            requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
 
-        // Derive new message key: M_n = HMAC(C_n, n)
-        val messageHmacOutput = hmac(newChainKey.bytes, newMessageNumber.toString().toByteArray())
-        val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
+            // Increment message number
+            val newMessageNumber = oldState.messageNumber + 1
 
-        val newState = oldState.deepCopy(
-            messageNumber = newMessageNumber,
-            chainKey = newChainKey,
-            messageKey = newMessageKey
-        )
+            // Derive new chain key: C_n = HMAC(C_{n-1}, n)
+            val chainHmacOutput =
+                performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
+            val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
 
-        // TODO: Zeroize everything else
+            // Derive new message key: M_n = HMAC(C_n, n)
+            val messageHmacOutput =
+                performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
+            val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
-        return SecureRatchetState(newState)
+            val newState = oldState.deepCopy(
+                messageNumber = newMessageNumber,
+                chainKey = newChainKey,
+                messageKey = newMessageKey
+            )
+
+            // TODO: Zeroize everything else
+
+            result = SecureRatchetState(newState)
+        }
+
+        return result ?: throw Exception("Null ratchet state")
     }
 
     /**
@@ -238,11 +261,10 @@ object Ratchet
 
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
-
     /**
      * Perform Elliptic Curve Diffie-Hellman key exchange using BouncyCastle
      */
-    private fun ecdh(privateKey: Curve25519PrivateKey, publicKey: Curve25519PublicKey): ByteArray
+    private fun ecdh(privateKey: Curve25519PrivateKey, publicKey: Curve25519PublicKey): Secret
     {
         // BouncyCastle X25519 key agreement
         val privateKeyBytes = privateKey.bytes
@@ -262,32 +284,36 @@ object Ratchet
             sharedSecret,
             0
         )
-
-        return sharedSecret
+        return Secret(sharedSecret)
     }
 
     /**
      * HKDF (HMAC-based Key Derivation Function) implementation
      * Returns 64 bytes (32 for root key, 32 for chain key)
      */
-    private fun hkdf(oldRootKey: ByteArray, sharedKey: ByteArray, info: String): ByteArray
+    private fun performHKDF(oldRootKey: ByteArray, sharedSecret: Secret, info: String): ByteArray
     {
-        // HKDF-Extract: PRK = HMAC(salt=oldRootKey, ikm=sharedKey)
-        val prk = hmac(oldRootKey, sharedKey)
+        var result: ByteArray? = null
 
-        // HKDF-Expand: Generate 64 bytes (32 for new root key, 32 for chain key)
-        val infoBytes = info.toByteArray()
-        val t1 = hmac(prk, infoBytes + byteArrayOf(0x01))
-        val t2 = hmac(prk, t1 + infoBytes + byteArrayOf(0x02))
+        sharedSecret.use { sharedKey ->
+            // HKDF-Extract: PRK = HMAC(salt=oldRootKey, ikm=sharedKey)
+            val prk = performHMAC(oldRootKey, sharedKey)
 
+            // HKDF-Expand: Generate 64 bytes (32 for new root key, 32 for chain key)
+            val infoBytes = info.toByteArray()
+            val t1 = performHMAC(prk, infoBytes + byteArrayOf(0x01))
+            val t2 = performHMAC(prk, t1 + infoBytes + byteArrayOf(0x02))
+            result = t1 + t2
+
+        }
         // Concatenate to return full 64 bytes
-        return t1 + t2
+        return result!!
     }
 
     /**
      * HMAC-SHA256 function
      */
-    private fun hmac(key: ByteArray, data: ByteArray): ByteArray
+    private fun performHMAC(key: ByteArray, data: ByteArray): ByteArray
     {
         val mac = Mac.getInstance(HMAC_ALGORITHM)
         val secretKey = SecretKeySpec(key, HMAC_ALGORITHM)

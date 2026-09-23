@@ -2,11 +2,9 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Test
 import org.junit.Assert.*
-import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
 import kotlin.test.assertFailsWith
 
 class RatchetUnitTests
@@ -252,12 +250,12 @@ class RatchetUnitTests
 
         bobKeypair.use { bobKeypair ->
 
-            val singleUseInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            singleUseInitialState.use { state ->
+            secureInitialState.use { state ->
 
                 // Perform first ratchet with new key
-                val result = Ratchet.ratchetForSend(state)
+                val result = Ratchet.ratchetForSend(secureInitialState)
                 result.state.use { ratchetedState ->
 
                     // Should now have all ephemeral state
@@ -289,18 +287,16 @@ class RatchetUnitTests
         val bobKeypair = Ratchet.generateMADHKeypair()
 
         bobKeypair.use { bobKeypair ->
-            val singleUseInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            var ratchetedState: RatchetState? = null
-
-            singleUseInitialState.use { initialState ->
+            secureInitialState.use { initialState ->
 
                 // Bob sends his ephemeral key
                 val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
 
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                    Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
+                    Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { ratchetedState ->
 
                             assertNotNull(ratchetedState.chainKey)
@@ -337,49 +333,47 @@ class RatchetUnitTests
         bobKeypair.use { bobKeypair ->
 
             // Setup: create state with ephemeral keys
-            val singleUseInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                singleUseInitialState.use { initialState ->
-                    Ratchet.ratchetForReceive(initialState, bobEphemeralKeypair.publicKey)
-                        .use { state1 ->
+                Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                    .use { state1 ->
 
-                            // Advance without new keys
-                            Ratchet.symmetricRatchet(state1).use { state2 ->
-                                // Message number should increment
-                                assertEquals(2, state2.messageNumber)
+                        // Advance without new keys
+                        Ratchet.symmetricRatchet(secureInitialState).use { state2 ->
+                            // Message number should increment
+                            assertEquals(2, state2.messageNumber)
 
-                                // Chain key and message key should change
-                                assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                                assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                            // Chain key and message key should change
+                            assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                            assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
 
-                                // Shared key and ephemeral keys should stay the same
-                                assertArrayEquals(
-                                    state1.sharedKey!!.bytes,
-                                    state2.sharedKey!!.bytes
-                                )
-                                assertArrayEquals(
-                                    state1.localEphemeralKeypair?.publicKey?.bytes,
-                                    state2.localEphemeralKeypair?.publicKey?.bytes
-                                )
-                                assertArrayEquals(
-                                    state1.localEphemeralKeypair?.privateKey?.bytes,
-                                    state2.localEphemeralKeypair?.privateKey?.bytes
-                                )
-                                assertArrayEquals(
-                                    state1.remoteEphemeralPublicKey?.bytes,
-                                    state2.remoteEphemeralPublicKey?.bytes
-                                )
+                            // Shared key and ephemeral keys should stay the same
+                            assertArrayEquals(
+                                state1.sharedKey!!.bytes,
+                                state2.sharedKey!!.bytes
+                            )
+                            assertArrayEquals(
+                                state1.localEphemeralKeypair?.publicKey?.bytes,
+                                state2.localEphemeralKeypair?.publicKey?.bytes
+                            )
+                            assertArrayEquals(
+                                state1.localEphemeralKeypair?.privateKey?.bytes,
+                                state2.localEphemeralKeypair?.privateKey?.bytes
+                            )
+                            assertArrayEquals(
+                                state1.remoteEphemeralPublicKey?.bytes,
+                                state2.remoteEphemeralPublicKey?.bytes
+                            )
 
-                                // Root key should stay the same
-                                assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
-                            }
+                            // Root key should stay the same
+                            assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
                         }
+                    }
                 }
             }
-        }
     }
 
     @Test
@@ -392,14 +386,12 @@ class RatchetUnitTests
 
             val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            initialState.use { initialState ->
-                // Should fail because there's no chain key yet
-                try {
-                    Ratchet.symmetricRatchet(initialState)
-                    fail("Should have thrown IllegalArgumentException")
-                } catch (e: IllegalArgumentException) {
-                    assertTrue(e.message!!.contains("chain key"))
-                }
+            // Should fail because there's no chain key yet
+            try {
+                Ratchet.symmetricRatchet(initialState)
+                fail("Should have thrown IllegalArgumentException")
+            } catch (e: IllegalArgumentException) {
+                assertTrue(e.message!!.contains("chain key"))
             }
         }
 

@@ -8,6 +8,8 @@ import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.SharedKey
 
+// TODO: Does this need Autocloseable if it's passed around in a secure autocloseable container class?
+
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.
  *
@@ -28,7 +30,7 @@ class RatchetState(
     val messageKey: MessageKey? = null,
     val localEphemeralKeypair: Curve25519KeyPair? = null,
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null
-): AutoCloseable {
+) {
 
     fun deepCopy(
         localLongtermKeypair: Curve25519KeyPair = this.localLongtermKeypair,
@@ -63,7 +65,7 @@ class RatchetState(
         return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey)
     }
 
-    override fun close() {
+    fun close() {
         localLongtermKeypair.publicKey.bytes.fill(0)
         localLongtermKeypair.privateKey.bytes.fill(0)
         rootKey.close()
