@@ -1,10 +1,12 @@
 package org.operatorfoundation.ratchet.models.keys
 
+import org.operatorfoundation.ratchet.models.keys.restriction.RestrictedKey
+
 /**
  * Represents the chain key in the double ratchet algorithm.
  * The chain key is used to derive message keys.
  */
-class ChainKey(bytes: ByteArray): RestrictedKey(bytes)
+class ChainKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
 {
     companion object
     {

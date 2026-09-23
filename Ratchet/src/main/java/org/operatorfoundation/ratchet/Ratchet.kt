@@ -26,7 +26,7 @@ object Ratchet
 {
     private const val HKDF_INFO = "SHOUT"
     private const val HMAC_ALGORITHM = "HmacSHA256"
-    const val VALID_KEY_LENGTH = 32
+    const val VALID_NUM_BYTES_IN_KEY = 32
 
     class RatchetSendResult(
         val state: SingleUseRatchetState,
@@ -43,11 +43,11 @@ object Ratchet
         val publicKeyBytes = publicKey.bytes
 
         // Ensure we have the correct key sizes
-        require(privateKeyBytes.size == VALID_KEY_LENGTH) { "Private key must be $VALID_KEY_LENGTH bytes" }
-        require(publicKeyBytes.size == VALID_KEY_LENGTH) { "Public key must be $VALID_KEY_LENGTH bytes" }
+        require(privateKeyBytes.size == VALID_NUM_BYTES_IN_KEY) { "Private key must be $VALID_NUM_BYTES_IN_KEY bytes" }
+        require(publicKeyBytes.size == VALID_NUM_BYTES_IN_KEY) { "Public key must be $VALID_NUM_BYTES_IN_KEY bytes" }
 
         // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
-        val sharedSecret = ByteArray(VALID_KEY_LENGTH)
+        val sharedSecret = ByteArray(VALID_NUM_BYTES_IN_KEY)
         org.bouncycastle.math.ec.rfc7748.X25519.scalarMult(
             privateKeyBytes,
             0,
@@ -105,6 +105,7 @@ object Ratchet
         remoteLongtermPublicKey: Curve25519PublicKey
     ): SingleUseRatchetState
     {
+
         // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
         val sharedSecret = ecdh(localLongtermKeypair.privateKey, remoteLongtermPublicKey)
         val initialRootKey = RootKey.fromECDH(sharedSecret)
@@ -131,7 +132,7 @@ object Ratchet
         oldState: RatchetState,
         localKeypair: Curve25519KeyPair,
         remotePublicKey: Curve25519PublicKey
-    ): RatchetState
+    ): SingleUseRatchetState
     {
         // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
         val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
@@ -147,7 +148,7 @@ object Ratchet
         val hmacOutput = hmac(chainKey.bytes, newMessageNumber.toString().toByteArray())
         val messageKey = MessageKey.fromHMAC(hmacOutput)
 
-        return RatchetState(
+        val newState = RatchetState(
             localLongtermKeypair = oldState.localLongtermKeypair,
             remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
             rootKey = newRootKey,
@@ -158,6 +159,8 @@ object Ratchet
             localEphemeralKeypair = localKeypair,
             remoteEphemeralPublicKey = remotePublicKey
         )
+
+        return SingleUseRatchetState(newState)
     }
 
     /**
@@ -171,9 +174,12 @@ object Ratchet
     {
         val newKeypair = MADH.generateKeypair()
         val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-        val newState = ratchetInternal(oldState, newKeypair, remoteKey)
-        val singleUseNewState = SingleUseRatchetState(newState)
-        return RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+        var result: RatchetSendResult? = null
+        ratchetInternal(oldState, newKeypair, remoteKey).use { newState ->
+            val singleUseNewState = SingleUseRatchetState(newState)
+            result = RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+        }
+        return result!!
     }
 
     /**
@@ -187,8 +193,11 @@ object Ratchet
     fun ratchetForReceive(oldState: RatchetState, senderEphemeralPublicKey: Curve25519PublicKey): SingleUseRatchetState
     {
         val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
-        val newState = ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey)
-        return SingleUseRatchetState(newState)
+        var newSecureState: SingleUseRatchetState? = null
+        ratchetInternal(oldState, localKeypair, senderEphemeralPublicKey).use { newState ->
+            newSecureState = SingleUseRatchetState(newState)
+        }
+        return newSecureState!!
     }
 
     /**

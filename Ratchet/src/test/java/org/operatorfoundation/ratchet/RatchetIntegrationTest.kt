@@ -423,17 +423,16 @@ class RatchetIntegrationTest
             // DH ratchet increments to 1
             val result = Ratchet.ratchetForSend(initialState)
 
-            var previousState: RatchetState? = null
-
             result.state.use { state ->
                 assertEquals(1, state.messageNumber)
 
+                var currentState = state
+
                 // Symmetric ratchets increment by 1 each
                 for (i in 2..10) {
-                    Ratchet.symmetricRatchet(previousState!!).use { newState ->
-                        previousState = newState
+                    Ratchet.symmetricRatchet(currentState).use { newState ->
                         assertEquals(i, newState.messageNumber)
-
+                        currentState = newState.deepCopy()
                     }
                 }
             }
