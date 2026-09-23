@@ -1,7 +1,7 @@
 package org.operatorfoundation.ratchet.models
 
 
-class SingleUseRatchetState(newRatchetState: RatchetState): AutoCloseable {
+class SecureRatchetState(newRatchetState: RatchetState): AutoCloseable {
 
     var isDestroyed: Boolean = false
 
