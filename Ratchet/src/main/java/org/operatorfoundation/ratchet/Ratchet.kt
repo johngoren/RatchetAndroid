@@ -1,7 +1,6 @@
 package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.aes.Ciphertext
-import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
@@ -23,15 +22,27 @@ import javax.crypto.spec.SecretKeySpec
  * The Double Ratchet provides forward secrecy and break-in recovery for
  * asynchronous messaging by combining a Diffie-Hellman ratchet with a
  * symmetric key ratchet.
+ *
+ *
+ * TODO: Zeroize and test
+ *
  */
+
 object Ratchet
 {
     private const val HKDF_INFO = "SHOUT"
     const val VALID_NUM_BYTES_IN_KEY = 32
 
+    class RatchetSendResult(
+        val state: SecureRatchetState,
+        val ephemeralPublicKeyToSend: Curve25519PublicKey
+    )
+
+
+    // ========== Creating a new ratchet state ==========
 
     /**
-     * Creates a new ratchet state from long-term keys.
+     * Creates a new ratchet state from long-term keys (JG: or ephemeral keys, right? if so change the param names)
      * This initializes the double ratchet algorithm.
      *
      * According to the spec:
@@ -69,60 +80,115 @@ object Ratchet
         return newRatchetState!!
     }
 
+    // ========== Advancing the ratchet, with or without new ephemeral keys ==========
+
+
     /**
-     * Advances the ratchet with new ephemeral keys (DH ratchet step).
+     * Advances the ratchet _with_ new ephemeral keys (DH ratchet step).
      * This should be called when receiving a message with a new public key.
+     *
+     * Formerly "ratchetWithNewKey()"
+     *
      *
      * @param oldState The current ratchet state
      * @param remotePublicKey New remote ephemeral public key
      * @return The updated ratchet state
      */
-    private fun ratchetInternal(
+    fun ratchetInternalWithIncomingKey(
         oldState: SecureRatchetState,
-        localKeypair: Curve25519KeyPair,
+        localKeypair: SecureKeypair,
         remotePublicKey: Curve25519PublicKey
     ): SecureRatchetState
     {
-        var newRatchetState: SecureRatchetState? = null
+        var nextRatchetState: SecureRatchetState? = null
+
+        localKeypair.use { localKeypair ->
+
+            oldState.use { oldState ->
+
+                // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
+                val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
+                val sharedKey = SharedKey.fromECDH(sharedSecret)
+
+                // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
+                val hkdfOutput = performHKDF(oldState.rootKey.bytes, sharedSecret, HKDF_INFO)
+                val newRootKey = RootKey.fromHKDF(hkdfOutput)
+                val newChainKey = ChainKey.fromHKDF(hkdfOutput)
+
+                // Increment message number and derive message key: M_n = HMAC(C_n, n)
+                val newMessageNumber = oldState.messageNumber + 1
+                val hmacOutput =
+                    performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
+                val messageKey = MessageKey.fromHMAC(hmacOutput)
+
+                val newState = RatchetState(
+                    localLongtermKeypair = oldState.localLongtermKeypair,
+                    remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
+                    rootKey = newRootKey,
+                    messageNumber = newMessageNumber,
+                    chainKey = newChainKey,
+                    sharedKey = sharedKey,
+                    messageKey = messageKey,
+                    localEphemeralKeypair = localKeypair,
+                    remoteEphemeralPublicKey = remotePublicKey
+                )
+
+                nextRatchetState = SecureRatchetState(newState)
+            }
+        }
+
+        return nextRatchetState ?: throw Exception("Null ratchet state")
+    }
+
+
+    /**
+     * Advances the ratchet without new keys (symmetric ratchet step).
+     * This should be called when sending/receiving multiple messages
+     * without a key change (consecutive messages, same sender).
+     *
+     * Formerly "ratchetWithoutNewKey()"
+     *
+     * @param oldState The current ratchet state
+     * @return The updated ratchet state with new chain and message keys
+     */
+    fun symmetricRatchetWithoutIncomingKey(oldState: SecureRatchetState): SecureRatchetState
+    {
+        var nextRatchetState: SecureRatchetState? = null
 
         oldState.use { oldState ->
 
-            // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-            val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
-            val sharedKey = SharedKey.fromECDH(sharedSecret)
+            // Ensure we have a chain key to work with
+            requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
 
-            // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
-            val hkdfOutput = performHKDF(oldState.rootKey.bytes, sharedSecret, HKDF_INFO)
-            val newRootKey = RootKey.fromHKDF(hkdfOutput)
-            val chainKey = ChainKey.fromHKDF(hkdfOutput)
-
-            // Increment message number and derive message key: M_n = HMAC(C_n, n)
+            // Increment message number
             val newMessageNumber = oldState.messageNumber + 1
-            val hmacOutput = performHMAC(chainKey.bytes, newMessageNumber.toString().toByteArray())
-            val messageKey = MessageKey.fromHMAC(hmacOutput)
 
-            val newState = RatchetState(
-                localLongtermKeypair = oldState.localLongtermKeypair,
-                remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
-                rootKey = newRootKey,
+            // Derive new chain key: C_n = HMAC(C_{n-1}, n)
+            val chainHmacOutput =
+                performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
+            val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
+
+            // Derive new message key: M_n = HMAC(C_n, n)
+            val messageHmacOutput =
+                performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
+            val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
+
+            val newState = oldState.deepCopy(
                 messageNumber = newMessageNumber,
-                chainKey = chainKey,
-                sharedKey = sharedKey,
-                messageKey = messageKey,
-                localEphemeralKeypair = localKeypair,
-                remoteEphemeralPublicKey = remotePublicKey
+                chainKey = newChainKey,
+                messageKey = newMessageKey
             )
 
-            newRatchetState = SecureRatchetState(newState)
+            // TODO: Zeroize everything else
+
+            nextRatchetState = SecureRatchetState(newState)
         }
 
-        return newRatchetState ?: throw Exception("Null ratchet state")
+        return nextRatchetState ?: throw Exception("Null ratchet state")
     }
 
-    class RatchetSendResult(
-        val state: SecureRatchetState,
-        val ephemeralPublicKeyToSend: Curve25519PublicKey
-    )
+
+    // ========== Sending and receiving ==========
 
     /**
      * Ratchet for sending a message.
@@ -136,11 +202,13 @@ object Ratchet
         var result: RatchetSendResult? = null
 
         oldState.use { oldState ->
-            val newKeypair = MADH.generateKeypair()
-            val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-            ratchetInternal(SecureRatchetState(oldState), newKeypair, remoteKey).use { newState ->
-                val singleUseNewState = SecureRatchetState(newState)
-                result = RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+            val newSecureKeypair = generateMADHKeypair()
+            newSecureKeypair.use { newKeypair ->
+                val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
+                ratchetInternalWithIncomingKey(SecureRatchetState(oldState), newSecureKeypair, remoteKey).use { newState ->
+                    val singleUseNewState = SecureRatchetState(newState)
+                    result = RatchetSendResult(singleUseNewState, newKeypair.publicKey)
+                }
             }
         }
         return result ?: throw Exception("Null ratchet send result")
@@ -159,57 +227,18 @@ object Ratchet
         var result: SecureRatchetState? = null
 
         oldStateSecure.use { oldState ->
+            // TODO: As we work on this remediation item see if we should encapsulate
             val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
-            ratchetInternal(oldStateSecure, localKeypair, senderEphemeralPublicKey).use { newState ->
+            ratchetInternalWithIncomingKey(oldStateSecure, SecureKeypair(localKeypair), senderEphemeralPublicKey).use { newState ->
                 result = SecureRatchetState(newState)
             }
         }
         return result ?: throw Exception("Null ratchet state")
     }
 
-    /**
-     * Advances the ratchet without new keys (symmetric ratchet step).
-     * This should be called when sending/receiving multiple messages
-     * without a key change (consecutive messages, same sender).
-     *
-     * @param oldState The current ratchet state
-     * @return The updated ratchet state with new chain and message keys
-     */
-    fun symmetricRatchet(oldState: SecureRatchetState): SecureRatchetState
-    {
-        var result: SecureRatchetState? = null
 
-        oldState.use { oldStateSnapshot ->
 
-            // Ensure we have a chain key to work with
-            requireNotNull(oldStateSnapshot.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
-
-            // Increment message number
-            val newMessageNumber = oldStateSnapshot.messageNumber + 1
-
-            // Derive new chain key: C_n = HMAC(C_{n-1}, n)
-            val chainHmacOutput =
-                performHMAC(oldStateSnapshot.chainKey.bytes, newMessageNumber.toString().toByteArray())
-            val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
-
-            // Derive new message key: M_n = HMAC(C_n, n)
-            val messageHmacOutput =
-                performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
-            val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
-
-            val newState = oldStateSnapshot.deepCopy(
-                messageNumber = newMessageNumber,
-                chainKey = newChainKey,
-                messageKey = newMessageKey
-            )
-
-            // TODO: Zeroize everything else
-
-            result = SecureRatchetState(newState)
-        }
-
-        return result ?: throw Exception("Null ratchet state")
-    }
+    // ========== Encrypting and decrypting ==========
 
     /**
      * Encrypts a plaintext message using the message key.
@@ -258,6 +287,10 @@ object Ratchet
             return null
         }
     }
+
+
+    // ========== Fundamental operations ==========
+
 
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
@@ -326,6 +359,8 @@ object Ratchet
      *
      *
      */
+
+    // TODO: Secure? Check if the sibling library makes a copy, or what.
 
     fun generateMADHKeypair(): SecureKeypair {
         return SecureKeypair(MADH.generateKeypair())

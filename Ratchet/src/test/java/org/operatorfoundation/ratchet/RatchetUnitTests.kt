@@ -8,6 +8,8 @@ import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import kotlin.test.assertFailsWith
 
+// TODO: Test zeroization!
+
 class RatchetUnitTests
 {
     // ========== PlaintextMessageType Tests ==========
@@ -326,24 +328,28 @@ class RatchetUnitTests
     }
 
     @Test
-    fun `ratchetWithoutNewKey advances symmetric ratchet`()
+    fun `symmetricRatchet advances symmetric ratchet`()
     {
         val aliceKeypair = Ratchet.generateMADHKeypair()
         val bobKeypair = Ratchet.generateMADHKeypair()
+        val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             // Setup: create state with ephemeral keys
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
-
+            
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                Ratchet.ratchetInternalWithIncomingKey(
+                    secureInitialState, aliceKeypair,
+                    remotePublicKey = bobEphemeralKeypair.publicKey
+                )
                     .use { state1 ->
 
                         // Advance without new keys
-                        Ratchet.symmetricRatchet(secureInitialState).use { state2 ->
+                        Ratchet.symmetricRatchetWithoutIncomingKey(secureInitialState).use { state2 ->
+
                             // Message number should increment
                             assertEquals(2, state2.messageNumber)
 
@@ -389,7 +395,7 @@ class RatchetUnitTests
 
             // Should fail because there's no chain key yet
             try {
-                Ratchet.symmetricRatchet(initialState)
+                Ratchet.symmetricRatchetWithoutIncomingKey(initialState)
                 fail("Should have thrown IllegalArgumentException")
             } catch (e: IllegalArgumentException) {
                 assertTrue(e.message!!.contains("chain key"))
@@ -422,7 +428,7 @@ class RatchetUnitTests
                             repeat(5)
                             {
 
-                                Ratchet.symmetricRatchet(previousState).use { newState ->
+                                Ratchet.symmetricRatchetWithoutIncomingKey(previousState).use { newState ->
                                     messageKeys.add(newState.messageKey!!.bytes)
                                     previousState = SecureRatchetState(newState)
                                 }
@@ -527,7 +533,7 @@ class RatchetUnitTests
 
                 Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                     .use { state1 ->
-                        val state2 = Ratchet.symmetricRatchet(SecureRatchetState(state1))
+                        val state2 = Ratchet.symmetricRatchetWithoutIncomingKey(SecureRatchetState(state1))
 
                         val message = PlaintextMessage(
                             PlaintextMessageType.DATA,
@@ -616,7 +622,7 @@ class RatchetUnitTests
                     val ciphertext1 = Ratchet.encrypt(aliceState1Snapshot.messageKey!!, message1)
 
                     // Alice advances her ratchet for message 2
-                    val aliceState2 = Ratchet.symmetricRatchet(aliceState1)
+                    val aliceState2 = Ratchet.symmetricRatchetWithoutIncomingKey(aliceState1)
                     val message2 =
                         PlaintextMessage(
                             PlaintextMessageType.DATA,
@@ -674,7 +680,7 @@ class RatchetUnitTests
 
                             // Advance 10 times
                             repeat(10) { i ->
-                                Ratchet.symmetricRatchet(previousState).use { newState ->
+                                Ratchet.symmetricRatchetWithoutIncomingKey(previousState).use { newState ->
                                     assertEquals(i + 2, newState.messageNumber)
                                     assertNotNull(newState.messageKey)
                                     previousState = SecureRatchetState(newState)

@@ -15,6 +15,11 @@ open class SecureKeypair(private val curve25519KeyPair: Curve25519KeyPair) {
             return Curve25519KeyPair(Curve25519PublicKey(_publicKeyBytes), Curve25519PrivateKey(_privateKeyBytes))
         }
 
+    val publicKey: Curve25519PublicKey
+        get() {
+            return Curve25519PublicKey(_publicKeyBytes.copyOf())
+        }
+
     fun use(block: (Curve25519KeyPair)->Unit) {
         check(!isDestroyed) { "Keypair has been destroyed "}
         if (!isDestroyed) {
