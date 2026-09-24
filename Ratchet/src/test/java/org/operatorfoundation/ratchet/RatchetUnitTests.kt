@@ -338,49 +338,47 @@ class RatchetUnitTests
 
             // Setup: create state with ephemeral keys
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            
-            bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                Ratchet.ratchetInternalWithIncomingKey(
-                    secureInitialState, aliceKeypair,
-                    remotePublicKey = bobEphemeralKeypair.publicKey
-                )
-                    .use { state1 ->
+            val secureState1 = Ratchet.ratchetInternalWithIncomingKey(
+                secureInitialState, aliceKeypair,
+                remotePublicKey = bobEphemeralKeypair.publicKey
+            )
 
-                        // Advance without new keys
-                        Ratchet.symmetricRatchetWithoutIncomingKey(secureInitialState).use { state2 ->
+            secureState1.use { state1 ->
 
-                            // Message number should increment
-                            assertEquals(2, state2.messageNumber)
+                // Advance without new keys
+                Ratchet.symmetricRatchetWithoutIncomingKey(secureState1).use { state2 ->
 
-                            // Chain key and message key should change
-                            assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                            assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                    // Message number should increment
+                    assertEquals(2, state2.messageNumber)
 
-                            // Shared key and ephemeral keys should stay the same
-                            assertArrayEquals(
-                                state1.sharedKey!!.bytes,
-                                state2.sharedKey!!.bytes
-                            )
-                            assertArrayEquals(
-                                state1.localEphemeralKeypair?.publicKey?.bytes,
-                                state2.localEphemeralKeypair?.publicKey?.bytes
-                            )
-                            assertArrayEquals(
-                                state1.localEphemeralKeypair?.privateKey?.bytes,
-                                state2.localEphemeralKeypair?.privateKey?.bytes
-                            )
-                            assertArrayEquals(
-                                state1.remoteEphemeralPublicKey?.bytes,
-                                state2.remoteEphemeralPublicKey?.bytes
-                            )
+                    // Chain key and message key should change
+                    assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                    assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
 
-                            // Root key should stay the same
-                            assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
-                        }
-                    }
+                    // Shared key and ephemeral keys should stay the same
+                    assertArrayEquals(
+                        state1.sharedKey!!.bytes,
+                        state2.sharedKey!!.bytes
+                    )
+                    assertArrayEquals(
+                        state1.localEphemeralKeypair?.publicKey?.bytes,
+                        state2.localEphemeralKeypair?.publicKey?.bytes
+                    )
+                    assertArrayEquals(
+                        state1.localEphemeralKeypair?.privateKey?.bytes,
+                        state2.localEphemeralKeypair?.privateKey?.bytes
+                    )
+                    assertArrayEquals(
+                        state1.remoteEphemeralPublicKey?.bytes,
+                        state2.remoteEphemeralPublicKey?.bytes
+                    )
+
+                    // Root key should stay the same
+                    assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
                 }
             }
+        }
     }
 
     @Test
