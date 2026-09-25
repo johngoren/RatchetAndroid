@@ -13,7 +13,6 @@ import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
-import java.security.SecureRandom
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -91,9 +90,9 @@ object Ratchet
      * @param remotePublicKey New remote ephemeral public key
      * @return The updated ratchet state
      */
-    fun ratchetInternalWithIncomingKey(
+    fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
-        localKeypair: SecureKeypair,
+        localKeypair: SecureKeypair,                // Controversial for sometimes (not always!) being the reused longterm
         remotePublicKey: Curve25519PublicKey
     ): SecureRatchetState
     {
@@ -200,7 +199,7 @@ object Ratchet
             val newSecureKeypair = generateMADHKeypair()
             newSecureKeypair.use { newKeypair ->
                 val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-                ratchetInternalWithIncomingKey(SecureRatchetState(oldState), newSecureKeypair, remoteKey).use { newState ->
+                ratchetInternalWithNewKey(SecureRatchetState(oldState), newSecureKeypair, remoteKey).use { newState ->
                     val newRatchetState = SecureRatchetState(newState)
                     result = RatchetSendResult(newRatchetState, newKeypair.publicKey)
                 }
@@ -225,7 +224,9 @@ object Ratchet
             // TODO: As we work on this remediation item see if we should encapsulate:
             val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
 
-            ratchetInternalWithIncomingKey(oldStateSecure, SecureKeypair(localKeypair), incomingEphemeralPublicKey).use { newState ->
+            // Ratchet with KDF-ized key rather than ..?
+
+            ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypair), incomingEphemeralPublicKey).use { newState ->
                 newRatchetState = SecureRatchetState(newState)
             }
         }
@@ -386,21 +387,17 @@ object Ratchet
         return SecureKeypair(MADH.generateKeypair())
     }
 
-    private fun getRandomSalt(): ByteArray {
-        return SecureRandom().generateSeed(NUM_BYTES_IN_KEY)
-    }
-
     // Binds initial root key to session
     private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): String {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
         val sessionString = String(sessionId)
-        return "SHOUT-Initialization-$sessionString"
+        return "SHOUT-Initializing root key for session -$sessionString"
     }
 
     private fun getInfoFieldForRatchet(sessionId: ByteArray): String {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
         val sessionString = String(sessionId)
-        val infoValue = "SHOUT-Ratchet-${sessionString}"
+        val infoValue = "SHOUT-Ratcheting chain key for session -${sessionString}"
         return infoValue
     }
 }

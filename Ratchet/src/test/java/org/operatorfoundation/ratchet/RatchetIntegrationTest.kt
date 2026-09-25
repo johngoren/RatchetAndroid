@@ -101,7 +101,7 @@ class RatchetIntegrationTest {
                     assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
 
                     // All keys should be created after DH ratchet
-                    assertNotNull(newState!!.chainKey)
+                    assertNotNull(newState.chainKey)
                     assertNotNull(newState.sharedKey)
                     assertNotNull(newState.messageKey)
 
@@ -114,6 +114,7 @@ class RatchetIntegrationTest {
         }
     }
 
+    // TODO: Test that local ephemeral keypair is changing at all!
 
     @Test
     fun `ratchetForReceive performs DH ratchet step`() {
@@ -137,6 +138,7 @@ class RatchetIntegrationTest {
                     assertNotNull(newState.chainKey)
                     assertNotNull(newState.sharedKey)
                     assertNotNull(newState.messageKey)
+                    assertNotNull(newState.localEphemeralKeypair)
                     assertNotNull(newState.remoteEphemeralPublicKey)
 
                     // Root key should change
@@ -144,10 +146,12 @@ class RatchetIntegrationTest {
 
                     // Message number should increment
                     assertEquals(1, newState.messageNumber)
+
                 }
             }
         }
     }
+
 
     @Test
     fun `ratchetWithoutNewKey performs symmetric ratchet step`() {
@@ -161,7 +165,7 @@ class RatchetIntegrationTest {
             bobKeypair.publicKey
         )
 
-        val state1 = Ratchet.ratchetInternalWithIncomingKey(initialState, aliceKeypair, incomingEphemeralKey)
+        val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, incomingEphemeralKey)
 
         state1.use { state1Snapshot ->
 

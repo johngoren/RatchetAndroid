@@ -334,7 +334,7 @@ class RatchetUnitTests {
             // Setup: create state with ephemeral keys
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            val secureState1 = Ratchet.ratchetInternalWithIncomingKey(
+            val secureState1 = Ratchet.ratchetInternalWithNewKey(
                 secureInitialState, aliceKeypair,
                 remotePublicKey = bobEphemeralKeypair.publicKey
             )
@@ -757,5 +757,8 @@ class RatchetUnitTests {
         }
     }
 
+    // ========== Zeroization tests ==========
+
+    // TODO
 
 }
