@@ -93,7 +93,7 @@ class RatchetIntegrationTest {
 
             secureInitialState.use { initialState ->
                 val result = Ratchet.ratchetForSend(secureInitialState)
-                assertNotNull(result.ephemeralPublicKeyToSend)
+                assertNotNull(result.outgoingEphemeralPublicKey)
 
                 result.state.use { newState ->
 
@@ -340,7 +340,7 @@ class RatchetIntegrationTest {
                         assertFalse(state1Snapshot.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
 
                         // The ephemeral keys should be different
-                        assertFalse(result1.ephemeralPublicKeyToSend.bytes.contentEquals(result2.ephemeralPublicKeyToSend.bytes))
+                        assertFalse(result1.outgoingEphemeralPublicKey.bytes.contentEquals(result2.outgoingEphemeralPublicKey.bytes))
                     }
                 }
             }

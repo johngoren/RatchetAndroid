@@ -1,12 +1,12 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.models.keys.restriction.RestrictedKey
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 
 /**
  * Represents a message key used to encrypt/decrypt individual messages.
  * Derived from the chain key in the double ratchet algorithm.
  */
-class MessageKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
+class MessageKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 {
     companion object
     {

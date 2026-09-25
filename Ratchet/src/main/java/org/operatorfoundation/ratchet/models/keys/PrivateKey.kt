@@ -1,13 +1,13 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.models.keys.restriction.RestrictedKey
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 
 
 /**
  * Represents the root key in the double ratchet algorithm.
  * The root key is used to derive chain keys.
  */
-class PrivateKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
+class PrivateKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 {
 
 

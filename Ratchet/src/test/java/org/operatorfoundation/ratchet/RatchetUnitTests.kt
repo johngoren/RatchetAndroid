@@ -265,7 +265,7 @@ class RatchetUnitTests
                     assertNotNull(ratchetedState.chainKey)
                     assertNotNull(ratchetedState.sharedKey)
                     assertNotNull(ratchetedState.messageKey)
-                    assertNotNull(result.ephemeralPublicKeyToSend)
+                    assertNotNull(result.outgoingEphemeralPublicKey)
 
                     // Message number should increment
                     assertEquals(1, ratchetedState.messageNumber)
@@ -277,7 +277,7 @@ class RatchetUnitTests
                     assertEquals(32, ratchetedState.chainKey!!.bytes.size)
                     assertEquals(32, ratchetedState.sharedKey!!.bytes.size)
                     assertEquals(32, ratchetedState.messageKey!!.bytes.size)
-                    assertEquals(32, result.ephemeralPublicKeyToSend.bytes.size)
+                    assertEquals(32, result.outgoingEphemeralPublicKey.bytes.size)
                 }
             }
         }

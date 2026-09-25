@@ -29,7 +29,9 @@ class RatchetState(
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
     val localEphemeralKeypair: Curve25519KeyPair? = null,
-    val remoteEphemeralPublicKey: Curve25519PublicKey? = null
+    val remoteEphemeralPublicKey: Curve25519PublicKey? = null,
+    val sessionId: ByteArray = ByteArray(16),
+    val monotonicCounter: Int = 0
 ) {
 
     fun deepCopy(
@@ -62,7 +64,7 @@ class RatchetState(
             Curve25519PublicKey(remoteEphemeralPublicKey.bytes.copyOf())
         }
 
-        return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey)
+        return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey, sessionId)
     }
 
     fun close() {

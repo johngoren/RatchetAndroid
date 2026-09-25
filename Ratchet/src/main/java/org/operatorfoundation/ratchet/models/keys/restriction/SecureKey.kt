@@ -2,14 +2,14 @@ package org.operatorfoundation.ratchet.models.keys.restriction
 
 import org.operatorfoundation.ratchet.Ratchet
 
-open class RestrictedKey(private val keyBytes: ByteArray) {
+open class SecureKey(private val keyBytes: ByteArray) {
     var isDestroyed: Boolean = false
 
     private val _keyBytes: ByteArray
 
     init {
-        require(keyBytes.size == Ratchet.VALID_NUM_BYTES_IN_KEY) {
-            "AES-256 key must be ${Ratchet.VALID_NUM_BYTES_IN_KEY} bytes"
+        require(keyBytes.size == Ratchet.NUM_BYTES_IN_KEY) {
+            "AES-256 key must be ${Ratchet.NUM_BYTES_IN_KEY} bytes"
         }
         _keyBytes = keyBytes.copyOf()
 //        keyBytes.fill(0)
@@ -48,15 +48,15 @@ open class RestrictedKey(private val keyBytes: ByteArray) {
 ////                " redacted for security"
 //    }
 
-//    override fun equals(other: Any?): Boolean
-//    {
-//        throw SecurityException("Equality operations have been disabled for security")
-//    }
-//
-//    override fun hashCode(): Int
-//    {
-//        throw SecurityException("Hash codes have been disabled for security")
-//    }
+    override fun equals(other: Any?): Boolean
+    {
+        throw SecurityException("Equality operations have been disabled for security")
+    }
+
+    override fun hashCode(): Int
+    {
+        throw SecurityException("Hash codes have been disabled for security")
+    }
 
 
 }

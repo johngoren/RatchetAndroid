@@ -1,11 +1,11 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.models.keys.restriction.RestrictedKey
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 
 /**
  * Represents a shared key derived from ECDH in the double ratchet algorithm.
  */
-class SharedKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
+class SharedKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 {
     companion object
     {
@@ -20,7 +20,7 @@ class SharedKey(bytes: ByteArray): RestrictedKey(bytes.copyOf())
                 sharedKey = SharedKey(sharedSecret)
             }
 
-            return sharedKey!!
+            return sharedKey ?: throw Exception("Something went wrong")
         }
     }
     

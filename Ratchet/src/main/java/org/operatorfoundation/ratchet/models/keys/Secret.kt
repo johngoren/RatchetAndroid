@@ -1,6 +1,6 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.models.keys.restriction.RestrictedKey
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 
-class Secret(bytes: ByteArray): RestrictedKey(bytes) {
+class Secret(bytes: ByteArray): SecureKey(bytes) {
 }
