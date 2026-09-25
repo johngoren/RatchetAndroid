@@ -78,7 +78,7 @@ class RatchetState(
             Curve25519PublicKey(remoteEphemeralPublicKey.bytes.copyOf())
         }
 
-        require(copyOfLocalLongtermKeypair != null && copyOfLocalEphemeralKeypair != null) { "Could not copy keypairs "}
+        require(copyOfLocalLongtermKeypair != null) { "Could not copy keypairs "}
 
         return RatchetState(copyOfLocalLongtermKeypair, copyOfRemoteLongtermPublicKey, copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey, sessionId)
     }
