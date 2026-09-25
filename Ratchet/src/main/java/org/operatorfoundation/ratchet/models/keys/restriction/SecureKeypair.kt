@@ -44,21 +44,20 @@ open class SecureKeypair(private val curve25519KeyPair: Curve25519KeyPair) {
 //        }
     }
 
-//    override fun toString(): String {
-//        return this.toString()
-////        return "Symmetric key" +
-////                " redacted for security"
-//    }
+    override fun toString(): String {
+        return "Symmetric key" +
+                " redacted for security"
+    }
 
-//    override fun equals(other: Any?): Boolean
-//    {
-//        throw SecurityException("Equality operations have been disabled for security")
-//    }
-//
-//    override fun hashCode(): Int
-//    {
-//        throw SecurityException("Hash codes have been disabled for security")
-//    }
+    override fun equals(other: Any?): Boolean
+    {
+        throw SecurityException("Equality operations have been disabled for security")
+    }
+
+    override fun hashCode(): Int
+    {
+        throw SecurityException("Hash codes have been disabled for security")
+    }
 
 
 }

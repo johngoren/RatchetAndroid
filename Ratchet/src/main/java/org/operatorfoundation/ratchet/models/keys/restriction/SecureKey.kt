@@ -42,11 +42,10 @@ open class SecureKey(private val keyBytes: ByteArray) {
 //        }
     }
 
-//    override fun toString(): String {
-//        return this.toString()
-////        return "Symmetric key" +
-////                " redacted for security"
-//    }
+    override fun toString(): String {
+        return "Symmetric key" +
+                " redacted for security"
+    }
 
     override fun equals(other: Any?): Boolean
     {
@@ -57,6 +56,5 @@ open class SecureKey(private val keyBytes: ByteArray) {
     {
         throw SecurityException("Hash codes have been disabled for security")
     }
-
 
 }
