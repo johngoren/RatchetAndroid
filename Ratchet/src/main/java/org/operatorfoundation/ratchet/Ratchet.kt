@@ -67,7 +67,7 @@ object Ratchet
 
             // Return initial state with defaults for optional fields
             val newState = RatchetState(
-                localLongtermKeypair = keypair,
+                localLongtermKeypair = localLongtermKeypair,
                 remoteLongtermPublicKey = remoteLongtermPublicKey,
                 rootKey = initialRootKey,
                 sessionId = sessionId
@@ -93,17 +93,17 @@ object Ratchet
     fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
         localKeypair: SecureKeypair,                // Controversial for sometimes (not always!) being the reused longterm
-        remotePublicKey: Curve25519PublicKey
+        remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
         var nextRatchetState: SecureRatchetState? = null
 
-        localKeypair.use { localKeypair ->
+        localKeypair.use { localKeypairPeek ->
 
             oldState.use { oldState ->
 
                 // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-                val sharedSecret = ecdh(localKeypair.privateKey, remotePublicKey)
+                val sharedSecret = ecdh(localKeypairPeek.privateKey, remotePublicKey)
                 val sharedKey = SharedKey.fromECDH(sharedSecret)
 
                 // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
@@ -196,7 +196,7 @@ object Ratchet
         var result: RatchetSendResult? = null
 
         oldState.use { oldState ->
-            val newSecureKeypair = generateMADHKeypair()
+            val newSecureKeypair = generateMADHKeypair()    // TODO: Correct to call this our ephemeral public key?
             newSecureKeypair.use { newKeypair ->
                 val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
                 ratchetInternalWithNewKey(SecureRatchetState(oldState), newSecureKeypair, remoteKey).use { newState ->
@@ -222,13 +222,30 @@ object Ratchet
 
         oldStateSecure.use { oldState ->
             // TODO: As we work on this remediation item see if we should encapsulate:
-            val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
 
-            // Ratchet with KDF-ized key rather than ..?
+            // Begin experiment
 
-            ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypair), incomingEphemeralPublicKey).use { newState ->
-                newRatchetState = SecureRatchetState(newState)
+            var modifiedState: RatchetState? = null
+
+            if (oldState.localEphemeralKeypair == null) {
+                val newEphemeralKeypair = generateMADHKeypair()
+
+                modifiedState = oldState.deepCopy(
+                    localEphemeralKeypair = newEphemeralKeypair
+                )
             }
+
+            // End experiment
+
+            val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
+            localKeypair.use { localKeypairPeek ->
+                // Ratchet with KDF-ized key rather than ..?
+
+                ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypairPeek), incomingEphemeralPublicKey).use { newState ->
+                    newRatchetState = SecureRatchetState(newState)
+                }
+            }
+
         }
         return newRatchetState ?: throw Exception("Null ratchet state")
     }

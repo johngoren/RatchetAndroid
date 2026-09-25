@@ -167,29 +167,33 @@ class RatchetIntegrationTest {
 
         val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, incomingEphemeralKey)
 
-        state1.use { state1Snapshot ->
+        state1.use { state1Peek ->
 
             Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
                 // Chain and message keys should change (symmetric ratchet)
-                assertFalse(state1Snapshot.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                assertFalse(state1Snapshot.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                assertFalse(state1Peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                assertFalse(state1Peek.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
 
                 // Root key, shared key, and ephemeral keys should remain unchanged
-                assertArrayEquals(state1Snapshot.rootKey.bytes, state2.rootKey.bytes)
+                assertArrayEquals(state1Peek.rootKey.bytes, state2.rootKey.bytes)
                 assertArrayEquals(
-                    state1Snapshot.sharedKey!!.bytes,
+                    state1Peek.sharedKey!!.bytes,
                     state2.sharedKey!!.bytes
                 )
                 assertArrayEquals(
-                    state1Snapshot.localEphemeralKeypair?.publicKey?.bytes,
+                    state1Peek.localEphemeralKeypair?.publicKey?.bytes,
                     state2.localEphemeralKeypair?.publicKey?.bytes
                 )
+                state1Peek.localEphemeralKeypair?.use { state1LocalEphemeralKeypair ->
+                    state2.localEphemeralKeypair?.use { state2LocalEphemeralKeypair ->
+                        assertArrayEquals(
+                            state1LocalEphemeralKeypair.privateKey.bytes,
+                            state2LocalEphemeralKeypair.privateKey.bytes
+                        )
+                    }
+                }
                 assertArrayEquals(
-                    state1Snapshot.localEphemeralKeypair?.privateKey?.bytes,
-                    state2.localEphemeralKeypair?.privateKey?.bytes
-                )
-                assertArrayEquals(
-                    state1Snapshot.remoteEphemeralPublicKey?.bytes,
+                    state1Peek.remoteEphemeralPublicKey?.bytes,
                     state2.remoteEphemeralPublicKey?.bytes
                 )
 
@@ -256,11 +260,11 @@ class RatchetIntegrationTest {
                         messageText.toByteArray()
                     )
 
-                    currentState.use { currentStateSnapshot ->
+                    currentState.use { currentStatePeek ->
                         val ciphertext =
-                            Ratchet.encrypt(currentStateSnapshot.messageKey!!, plaintext)
+                            Ratchet.encrypt(currentStatePeek.messageKey!!, plaintext)
                         val decrypted =
-                            Ratchet.decrypt(currentStateSnapshot.messageKey!!, ciphertext)
+                            Ratchet.decrypt(currentStatePeek.messageKey!!, ciphertext)
 
                         assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
@@ -332,16 +336,16 @@ class RatchetIntegrationTest {
                 val result1 = Ratchet.ratchetForSend(secureInitialState)
                 val state1 = result1.state
                 state1.use {
-                    state1Snapshot ->
+                    state1Peek ->
                     // Perform second DH ratchet with new ephemeral keys
                     val result2 = Ratchet.ratchetForSend(state1)
                     result2.state.use { state2 ->
 
                         // All keys should be completely different (forward secrecy)
-                        assertFalse(state1Snapshot.rootKey.bytes.contentEquals(state2.rootKey.bytes))
-                        assertFalse(state1Snapshot.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                        assertFalse(state1Snapshot.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
-                        assertFalse(state1Snapshot.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
+                        assertFalse(state1Peek.rootKey.bytes.contentEquals(state2.rootKey.bytes))
+                        assertFalse(state1Peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                        assertFalse(state1Peek.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                        assertFalse(state1Peek.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
 
                         // The ephemeral keys should be different
                         assertFalse(result1.outgoingEphemeralPublicKey.bytes.contentEquals(result2.outgoingEphemeralPublicKey.bytes))
@@ -364,14 +368,14 @@ class RatchetIntegrationTest {
 
             val result = Ratchet.ratchetForSend(secureInitialState)
 
-            result.state.use { stateSnapshot ->
+            result.state.use { statePeek ->
 
                 val message = PlaintextMessage(
                     type = PlaintextMessageType.UNCOMPRESSED_TEXT,
                     bytes = "Same message".toByteArray()
                 )
 
-                val ciphertext1 = Ratchet.encrypt(stateSnapshot.messageKey!!, message)
+                val ciphertext1 = Ratchet.encrypt(statePeek.messageKey!!, message)
 
                 // Advance ratchet to get new message key
                 Ratchet.symmetricRatchetWithoutIncomingKey(result.state).use { newState ->
@@ -473,7 +477,7 @@ class RatchetIntegrationTest {
             val result = Ratchet.ratchetForSend(secureInitialState)
             val state1 = result.state
 
-            state1.use { state1Snapshot ->
+            state1.use { state1Peek ->
 
                 Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
                     val message = PlaintextMessage(
@@ -482,7 +486,7 @@ class RatchetIntegrationTest {
                     )
 
                     // Encrypt with state1's key
-                    val ciphertext = Ratchet.encrypt(state1Snapshot.messageKey!!, message)
+                    val ciphertext = Ratchet.encrypt(state1Peek.messageKey!!, message)
 
                     // Try to decrypt with state2's key (should fail)
                     try {

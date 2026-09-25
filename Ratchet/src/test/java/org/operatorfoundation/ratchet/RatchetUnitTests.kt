@@ -222,10 +222,14 @@ class RatchetUnitTests {
                         aliceKeypair.publicKey.bytes,
                         state.localLongtermKeypair.publicKey.bytes
                     )
-                    assertArrayEquals(
-                        aliceKeypair.privateKey.bytes,
-                        state.localLongtermKeypair.privateKey.bytes
-                    )
+
+                    state.localLongtermKeypair.use { localLongtermKeypair ->
+                        assertArrayEquals(
+                            aliceKeypair.privateKey.bytes,
+                            localLongtermKeypair.privateKey.bytes
+                        )
+                    }
+
                     assertArrayEquals(
                         bobKeypair.publicKey.bytes,
                         state.remoteLongtermPublicKey.bytes
@@ -360,10 +364,14 @@ class RatchetUnitTests {
                         state1.localEphemeralKeypair?.publicKey?.bytes,
                         state2.localEphemeralKeypair?.publicKey?.bytes
                     )
-                    assertArrayEquals(
-                        state1.localEphemeralKeypair?.privateKey?.bytes,
-                        state2.localEphemeralKeypair?.privateKey?.bytes
-                    )
+                    state1.localLongtermKeypair.use { state1Keypair ->
+                        state2.localLongtermKeypair.use { state2Keypair ->
+                            assertArrayEquals(
+                                state1Keypair.privateKey.bytes,
+                                state2Keypair.privateKey.bytes
+                            )
+                        }
+                    }
                     assertArrayEquals(
                         state1.remoteEphemeralPublicKey?.bytes,
                         state2.remoteEphemeralPublicKey?.bytes
@@ -536,8 +544,8 @@ class RatchetUnitTests {
 
                         // Try to decrypt with state2's key (should fail)
                         try {
-                            state2.use { snapshotOfState2 ->
-                                Ratchet.decrypt(snapshotOfState2.messageKey!!, ciphertext)
+                            state2.use { state2peek ->
+                                Ratchet.decrypt(state2peek.messageKey!!, ciphertext)
                                 fail("Should have thrown SecurityException")
                             }
                         } catch (e: SecurityException) {
@@ -603,7 +611,7 @@ class RatchetUnitTests {
                     aliceSecureInitialState,
                     bobEphemeralKeypair.publicKey
                 )
-                aliceState1.use { aliceState1Snapshot ->
+                aliceState1.use { aliceState1peek ->
 
                     // Alice encrypts message 1
                     val message1 =
@@ -611,7 +619,7 @@ class RatchetUnitTests {
                             PlaintextMessageType.DATA,
                             "Message 1".toByteArray()
                         )
-                    val ciphertext1 = Ratchet.encrypt(aliceState1Snapshot.messageKey!!, message1)
+                    val ciphertext1 = Ratchet.encrypt(aliceState1peek.messageKey!!, message1)
 
                     // Alice advances her ratchet for message 2
                     val aliceState2 = Ratchet.symmetricRatchetWithoutIncomingKey(aliceState1)
@@ -621,23 +629,23 @@ class RatchetUnitTests {
                             "Message 2".toByteArray()
                         )
 
-                    aliceState2.use { aliceState2Snapshot ->
+                    aliceState2.use { aliceState2peek ->
 
                         val ciphertext2 =
-                            Ratchet.encrypt(aliceState2Snapshot.messageKey!!, message2)
+                            Ratchet.encrypt(aliceState2peek.messageKey!!, message2)
 
                         // Both messages can be decrypted with their respective keys
                         val decrypted1 =
-                            Ratchet.decrypt(aliceState1Snapshot.messageKey!!, ciphertext1)
+                            Ratchet.decrypt(aliceState1peek.messageKey!!, ciphertext1)
                         val decrypted2 =
-                            Ratchet.decrypt(aliceState2Snapshot.messageKey!!, ciphertext2)
+                            Ratchet.decrypt(aliceState2peek.messageKey!!, ciphertext2)
 
                         assertEquals("Message 1", String(decrypted1!!.bytes))
                         assertEquals("Message 2", String(decrypted2!!.bytes))
 
                         // Verify messages can't be decrypted with wrong keys
                         try {
-                            Ratchet.decrypt(aliceState2Snapshot.messageKey!!, ciphertext1)
+                            Ratchet.decrypt(aliceState2peek.messageKey!!, ciphertext1)
                             fail("Should not decrypt with wrong key")
                         } catch (e: SecurityException) {
                             // Expected - demonstrates forward secrecy
@@ -704,25 +712,25 @@ class RatchetUnitTests {
 
                         val state1 =
                             Ratchet.ratchetForReceive(secureInitialState, bobEphemeral1.publicKey)
-                        state1.use { state1Snapshot ->
+                        state1.use { state1peek ->
                             Ratchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
                                 .use { state2 ->
 
                                     // All ephemeral keys should be different
-                                    assertFalse(state1Snapshot.rootKey.bytes.contentEquals(state2.rootKey.bytes))
-                                    assertFalse(state1Snapshot.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                                    assertFalse(state1peek.rootKey.bytes.contentEquals(state2.rootKey.bytes))
+                                    assertFalse(state1peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
                                     assertFalse(
-                                        state1Snapshot.sharedKey!!.bytes.contentEquals(
+                                        state1peek.sharedKey!!.bytes.contentEquals(
                                             state2.sharedKey!!.bytes
                                         )
                                     )
                                     assertFalse(
-                                        state1Snapshot.messageKey!!.bytes.contentEquals(
+                                        state1peek.messageKey!!.bytes.contentEquals(
                                             state2.messageKey!!.bytes
                                         )
                                     )
                                     assertNotEquals(
-                                        state1Snapshot.remoteEphemeralPublicKey,
+                                        state1peek.remoteEphemeralPublicKey,
                                         state2.remoteEphemeralPublicKey
                                     )
                                 }
