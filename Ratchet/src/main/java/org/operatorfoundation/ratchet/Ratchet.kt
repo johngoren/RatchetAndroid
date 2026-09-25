@@ -225,20 +225,13 @@ object Ratchet
 
             // Begin experiment
 
-            var modifiedState: RatchetState? = null
-
-            if (oldState.localEphemeralKeypair == null) {
-                val newEphemeralKeypair = generateMADHKeypair()
-
-                modifiedState = oldState.deepCopy(
-                    localEphemeralKeypair = newEphemeralKeypair
-                )
-            }
+            val newKeypair = generateMADHKeypair()
 
             // End experiment
 
-            val localKeypair = oldState.localEphemeralKeypair ?: oldState.localLongtermKeypair
-            localKeypair.use { localKeypairPeek ->
+//            val localKeypair = oldState?.localEphemeralKeypair ?: oldState.localLongtermKeypair
+
+            newKeypair.use { localKeypairPeek ->
                 // Ratchet with KDF-ized key rather than ..?
 
                 ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypairPeek), incomingEphemeralPublicKey).use { newState ->
