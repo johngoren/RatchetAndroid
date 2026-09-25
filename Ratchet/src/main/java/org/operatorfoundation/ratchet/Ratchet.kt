@@ -220,18 +220,11 @@ object Ratchet
     {
         var newRatchetState: SecureRatchetState? = null
 
-        oldStateSecure.use { oldState ->
-            // TODO: As we work on this remediation item see if we should encapsulate:
+        oldStateSecure.use { oldStatePeek ->
+            
+            val ephemeralKeypair = oldStatePeek.localEphemeralKeypair ?: generateMADHKeypair()
 
-            // Begin experiment
-
-            val newKeypair = generateMADHKeypair()
-
-            // End experiment
-
-//            val localKeypair = oldState?.localEphemeralKeypair ?: oldState.localLongtermKeypair
-
-            newKeypair.use { localKeypairPeek ->
+            ephemeralKeypair.use { localKeypairPeek ->
                 // Ratchet with KDF-ized key rather than ..?
 
                 ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypairPeek), incomingEphemeralPublicKey).use { newState ->
