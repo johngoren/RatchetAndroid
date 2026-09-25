@@ -165,7 +165,7 @@ class RatchetIntegrationTest {
             bobKeypair.publicKey
         )
 
-        val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, incomingEphemeralKey)
+        val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, null, incomingEphemeralKey)
 
         state1.use { state1Peek ->
 

@@ -1,6 +1,7 @@
 package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.aes.Ciphertext
+import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
@@ -92,49 +93,73 @@ object Ratchet
      */
     fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
-        localKeypair: SecureKeypair,                // Controversial for sometimes (not always!) being the reused longterm
+        longtermKeypair: SecureKeypair?,
+        localEphemeralKeypair: SecureKeypair?,
         remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
         var nextRatchetState: SecureRatchetState? = null
 
-        localKeypair.use { localKeypairPeek ->
+        var longtermKeypairFallback: Curve25519KeyPair? = null
+        var localEphemeralKeys: Curve25519KeyPair? = null
 
-            oldState.use { oldState ->
+        longtermKeypair?.use { longtermKeypairPeek ->
+            longtermKeypairFallback = longtermKeypairPeek
+        }
 
-                // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-                val sharedSecret = ecdh(localKeypairPeek.privateKey, remotePublicKey)
-                val sharedKey = SharedKey.fromECDH(sharedSecret)
+        localEphemeralKeypair?.use { ephemeralKeypairPeek ->
+            localEphemeralKeys = ephemeralKeypairPeek
+        }
 
-                // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
-                val hkdfOutput = performHKDFtoGetRootAndChainKeyMaterial(oldState.rootKey.bytes, sharedSecret, getInfoFieldForRatchet(oldState.sessionId))
-                val newRootKey = RootKey.fromHKDF(hkdfOutput)
-                val newChainKey = ChainKey.fromHKDF(hkdfOutput)
+        require(localEphemeralKeypair != null || longtermKeypair!= null) { "No local key to work with"}
 
-                // Increment message number and derive message key: M_n = HMAC(C_n, n)
-                val newMessageNumber = oldState.messageNumber + 1
-                val hmacOutput =
-                    performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
-                val messageKey = MessageKey.fromHMAC(hmacOutput)
+        var sessionId: ByteArray? = null
+        oldState.use { statePeek ->
+            sessionId = statePeek.sessionId
+        }
 
-                val newState = RatchetState(
-                    localLongtermKeypair = oldState.localLongtermKeypair,
-                    remoteLongtermPublicKey = oldState.remoteLongtermPublicKey,
-                    rootKey = newRootKey,
-                    messageNumber = newMessageNumber,
-                    chainKey = newChainKey,
-                    sharedKey = sharedKey,
-                    messageKey = messageKey,
-                    localEphemeralKeypair = localKeypair,
-                    remoteEphemeralPublicKey = remotePublicKey
-                )
+        val noEphemeralLocalKeyYet = (localEphemeralKeys == null)
 
-                nextRatchetState = SecureRatchetState(newState)
-            }
+        val keyToUseInECDH = if (!noEphemeralLocalKeyYet) {
+            localEphemeralKeys.privateKey
+        }
+        else deriveKeyFromLocalLongtermPrivateKey(longtermKeypairFallback!!.privateKey, getInfoFieldForBootstrapKey(sessionId!!))
+
+        oldState.use { oldStatePeek ->
+
+            // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
+            val sharedSecret = ecdh(keyToUseInECDH, remotePublicKey)
+            val sharedKey = SharedKey.fromECDH(sharedSecret)
+
+            // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
+            val hkdfOutput = performHKDFtoGetRootAndChainKeyMaterial(oldStatePeek.rootKey.bytes, sharedSecret, getInfoFieldForRatchet(oldStatePeek.sessionId))
+            val newRootKey = RootKey.fromHKDF(hkdfOutput)
+            val newChainKey = ChainKey.fromHKDF(hkdfOutput)
+
+            // Increment message number and derive message key: M_n = HMAC(C_n, n)
+            val newMessageNumber = oldStatePeek.messageNumber + 1
+            val hmacOutput =
+                performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
+            val messageKey = MessageKey.fromHMAC(hmacOutput)
+
+            val newState = RatchetState(
+                localLongtermKeypair = oldStatePeek.localLongtermKeypair,
+                remoteLongtermPublicKey = oldStatePeek.remoteLongtermPublicKey,
+                rootKey = newRootKey,
+                messageNumber = newMessageNumber,
+                chainKey = newChainKey,
+                sharedKey = sharedKey,
+                messageKey = messageKey,
+                localEphemeralKeypair = longtermKeypair,
+                remoteEphemeralPublicKey = remotePublicKey
+            )
+
+            nextRatchetState = SecureRatchetState(newState)
         }
 
         return nextRatchetState ?: throw Exception("Null ratchet state")
     }
+
 
 
     /**
@@ -199,7 +224,11 @@ object Ratchet
             val newSecureKeypair = generateMADHKeypair()    // TODO: Correct to call this our ephemeral public key?
             newSecureKeypair.use { newKeypair ->
                 val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-                ratchetInternalWithNewKey(SecureRatchetState(oldState), newSecureKeypair, remoteKey).use { newState ->
+                ratchetInternalWithNewKey(
+                    oldState=SecureRatchetState(oldState),
+                    longtermKeypair = null,
+                    localEphemeralKeypair = newSecureKeypair,
+                    remotePublicKey = remoteKey).use { newState ->
                     val newRatchetState = SecureRatchetState(newState)
                     result = RatchetSendResult(newRatchetState, newKeypair.publicKey)
                 }
@@ -221,17 +250,18 @@ object Ratchet
         var newRatchetState: SecureRatchetState? = null
 
         oldStateSecure.use { oldStatePeek ->
-            
-            val ephemeralKeypair = oldStatePeek.localEphemeralKeypair ?: generateMADHKeypair()
 
-            ephemeralKeypair.use { localKeypairPeek ->
-                // Ratchet with KDF-ized key rather than ..?
+            val ephemeralKeypair = oldStatePeek.localEphemeralKeypair
+            val fallbackToLongtermKeypair = if (ephemeralKeypair != null) { null } else { oldStatePeek.localLongtermKeypair }
 
-                ratchetInternalWithNewKey(oldStateSecure, SecureKeypair(localKeypairPeek), incomingEphemeralPublicKey).use { newState ->
-                    newRatchetState = SecureRatchetState(newState)
-                }
-            }
+            val resultingRatchetState = ratchetInternalWithNewKey(
+                oldState = oldStateSecure,
+                longtermKeypair = fallbackToLongtermKeypair,
+                localEphemeralKeypair = ephemeralKeypair,
+                remotePublicKey = incomingEphemeralPublicKey,
+            )
 
+            newRatchetState = resultingRatchetState
         }
         return newRatchetState ?: throw Exception("Null ratchet state")
     }
@@ -367,6 +397,20 @@ object Ratchet
         return newOutput ?: throw Exception("Something went wrong")
     }
 
+    private fun deriveKeyFromLocalLongtermPrivateKey(longtermPrivateKey: Curve25519PrivateKey, info: String): Curve25519PrivateKey {
+        var newOutput: ByteArray? = null
+        val salt = ByteArray(NUM_BYTES_IN_KEY)
+        val prk = performHMAC(salt, longtermPrivateKey.bytes)
+
+        // HKDF-Expand: Generate 32 bytes
+
+        val infoBytes = info.toByteArray()
+        newOutput = performHMAC(prk, infoBytes + byteArrayOf(0x01)) // TODO: Why are we adding this
+        val newKey = Curve25519PrivateKey(newOutput )
+        return newKey
+    }
+
+
     /**
      * HMAC-SHA256 function
      */
@@ -394,13 +438,21 @@ object Ratchet
     private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): String {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
         val sessionString = String(sessionId)
-        return "SHOUT-Initializing root key for session -$sessionString"
+        return "SHOUT-Initializing root key for session $sessionString"
     }
 
     private fun getInfoFieldForRatchet(sessionId: ByteArray): String {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
         val sessionString = String(sessionId)
-        val infoValue = "SHOUT-Ratcheting chain key for session -${sessionString}"
+        val infoValue = "SHOUT-Ratcheting chain key for session $sessionString"
         return infoValue
     }
+
+    private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): String {
+        require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
+        val sessionString = String(sessionId)
+        val infoValue = "Shout-Deriving bootstrap key from longtermKey in session $sessionString"
+        return infoValue
+    }
+
 }
