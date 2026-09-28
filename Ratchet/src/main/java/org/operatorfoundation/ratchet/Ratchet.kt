@@ -203,10 +203,7 @@ object Ratchet
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)
         }
-
-
     }
-
 
 
     /**
@@ -220,37 +217,46 @@ object Ratchet
     fun symmetricRatchetWithoutIncomingKey(oldState: SecureRatchetState): SecureRatchetState
     {
         var nextRatchetState: SecureRatchetState? = null
+        var chainHmacOutput: ByteArray? = null
+        var messageHmacOutput: ByteArray? = null
 
-        oldState.use { oldState ->
+        return try {
+            oldState.use { oldState ->
 
-            // Ensure we have a chain key to work with
-            requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
+                // Ensure we have a chain key to work with
+                requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetWithNewKey first." }
 
-            // Increment message number
-            val newMessageNumber = oldState.messageNumber + 1
+                // Increment message number
+                val newMessageNumber = oldState.messageNumber + 1
 
-            // Derive new chain key: C_n = HMAC(C_{n-1}, n)
-            val chainHmacOutput =
-                performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
-            val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
+                // Derive new chain key: C_n = HMAC(C_{n-1}, n)
+                chainHmacOutput =
+                    performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
+                val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
 
-            // Derive new message key: M_n = HMAC(C_n, n)
-            val messageHmacOutput =
-                performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
-            val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
+                // Derive new message key: M_n = HMAC(C_n, n)
+                messageHmacOutput =
+                    performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
+                val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
-            val newState = oldState.deepCopy(
-                messageNumber = newMessageNumber,
-                chainKey = newChainKey,
-                messageKey = newMessageKey
-            )
+                val newState = oldState.deepCopy(
+                    messageNumber = newMessageNumber,
+                    chainKey = newChainKey,
+                    messageKey = newMessageKey
+                )
 
-            // TODO: Zeroize everything else
+                nextRatchetState = SecureRatchetState(newState)
+            }
 
-            nextRatchetState = SecureRatchetState(newState)
+            nextRatchetState ?: throw Exception("Null ratchet state")
         }
-
-        return nextRatchetState ?: throw Exception("Null ratchet state")
+        catch(e: Exception) {
+            throw e // TODO: More specific error-handling
+        }
+        finally {
+            chainHmacOutput?.fill(0)
+            messageHmacOutput?.fill(0)
+        }
     }
 
 
