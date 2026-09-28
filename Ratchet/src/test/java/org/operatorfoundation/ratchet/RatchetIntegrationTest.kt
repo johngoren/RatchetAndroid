@@ -5,7 +5,6 @@ import org.junit.Assert.*
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
-import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.TestUtils.mockKeypair
 
@@ -18,27 +17,21 @@ class RatchetIntegrationTest {
 
         bobKeypair.use { bobKeypair ->
 
-            val singleUseRatchetState = Ratchet.newRatchetState(
+            val secureRatchetState = Ratchet.newRatchetState(
                 aliceKeypair,
                 bobKeypair.publicKey
             )
 
-            try {
-                singleUseRatchetState.use { state ->
-                    assertNotNull(state.rootKey)
-                    assertEquals(0, state.messageNumber)
+            secureRatchetState.use { state ->
+                assertNotNull(state.rootKey)
+                assertEquals(0, state.messageNumber)
 
-                    // Ephemeral keys are not yet generated
-                    assertNull(state.chainKey)
-                    assertNull(state.sharedKey)
-                    assertNull(state.messageKey)
-                    assertNull(state.localEphemeralKeypair)
-                    assertNull(state.remoteEphemeralPublicKey)
-                }
-            } catch (e: Exception) {
-
-            } finally {
-                singleUseRatchetState.close()
+                // Ephemeral keys are not yet generated
+                assertNull(state.chainKey)
+                assertNull(state.sharedKey)
+                assertNull(state.messageKey)
+                assertNull(state.localEphemeralKeypair)
+                assertNull(state.remoteEphemeralPublicKey)
             }
         }
     }

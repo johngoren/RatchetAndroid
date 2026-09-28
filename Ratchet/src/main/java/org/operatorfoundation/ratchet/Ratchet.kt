@@ -30,6 +30,7 @@ import javax.crypto.spec.SecretKeySpec
 object Ratchet
 {
     const val NUM_BYTES_IN_KEY = 32
+    const val NUM_BYTES_IN_SESSION_NONCE = 16   // TODO: Decide on length
 
     class RatchetSendResult(
         val state: SecureRatchetState,
@@ -52,10 +53,12 @@ object Ratchet
     fun newRatchetState(
         localLongtermKeypair: SecureKeypair,
         remoteLongtermPublicKey: Curve25519PublicKey,
-        sessionId: ByteArray = ByteArray(16)
+        sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce
     ): SecureRatchetState
     {
         var newRatchetState: SecureRatchetState? = null
+
+        require(sessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID"}
 
         localLongtermKeypair.use { keypair ->
 
@@ -430,9 +433,6 @@ object Ratchet
 
     /**
      * Secure wrapper for keypair maker
-     *
-     *
-
      */
 
     private fun generateEphemeralKeypair(): SecureKeypair {
@@ -453,10 +453,13 @@ object Ratchet
         return infoValue
     }
 
+
+    // TODO: Check if this info value will trip us up in this situation
+
     private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): String {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
         val sessionString = String(sessionId)
-        val infoValue = "Shout-Deriving bootstrap key from longtermKey in session $sessionString"
+        val infoValue = "Shout-Deriving first ephemeral key for session $sessionString"
         return infoValue
     }
 

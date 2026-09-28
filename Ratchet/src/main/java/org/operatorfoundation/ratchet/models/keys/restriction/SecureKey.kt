@@ -36,10 +36,10 @@ open class SecureKey(private val keyBytes: ByteArray) {
     }
 
     fun close() {
-//        if (!isDestroyed) {
-//            keyBytes.fill(0)
-//            isDestroyed = true
-//        }
+        if (!isDestroyed) {
+            keyBytes.fill(0)
+            isDestroyed = true
+        }
     }
 
     override fun toString(): String {
