@@ -74,7 +74,7 @@ object Ratchet
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
                 sharedSecret = ecdh(localKeypair.privateKey, remoteLongtermPublicKey)
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
-                    ByteArray(NUM_BYTES_IN_KEY),
+                    KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
                     getInfoFieldForInitialRootKey(sessionId)
                 )
@@ -458,7 +458,7 @@ object Ratchet
 
     private fun performHKDFtoDeriveRootKeyMaterial(salt: ByteArray? = null, sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
-        val salt = salt ?: ByteArray(NUM_BYTES_IN_KEY)
+        val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
 
         // TODO: Enforce proper secret size inside sharedSecret.
 
@@ -484,7 +484,7 @@ object Ratchet
         require(longtermPrivateKey.bytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key"}
 
         var newOutput: ByteArray? = null
-        val salt = ByteArray(NUM_BYTES_IN_KEY)
+        val salt = KeyContext.EphemeralKey.SALT.toByteArray(Charsets.UTF_8)
         val prk = performHMAC(salt, longtermPrivateKey.bytes)
 
         // HKDF-Expand: Generate 32 bytes
@@ -528,22 +528,41 @@ object Ratchet
     private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
 
-        return getInfoArray("SHOUT_ROOT", sessionId)
+        return getInfoArray(KeyContext.RootKey.INFOPREFIX, sessionId)
     }
 
     private fun getInfoFieldForRatchet(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
 
-        return getInfoArray("SHOUT_CHAIN_KEY", sessionId)
+        return getInfoArray(KeyContext.ChainKey.INFOPREFIX, sessionId)
     }
 
     // TODO: Check if this info value will trip us up in this situation,
     // as it is sharing a domain with the other key in Operator's MADH library
+    // but uses a different context. Does it matter? Maybe not.
 
     private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
 
-        return getInfoArray("SHOUT_EPHEMERAL", sessionId)
+        return getInfoArray(KeyContext.EphemeralKey.INFOPREFIX, sessionId)
+    }
+
+}
+
+object KeyContext {
+    object RootKey {
+        val SALT = "SHOUT-v1-Salt-RootKey"
+        val INFOPREFIX = "SHOUT-ROOT"
+    }
+
+    object ChainKey {
+        val SALT = "SHOUT-v1-Salt-ChainKey"
+        val INFOPREFIX = "SHOUT-CHAIN"
+    }
+
+    object EphemeralKey {
+        val SALT = "SHOUT-v1-Salt-Ephemeral"
+        val INFOPREFIX = "SHOUT-EPHEMERAL"
     }
 
 }
