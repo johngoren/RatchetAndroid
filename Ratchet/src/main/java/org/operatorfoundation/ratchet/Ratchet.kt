@@ -221,7 +221,7 @@ object Ratchet
         var result: RatchetSendResult? = null
 
         oldState.use { oldState ->
-            val newSecureKeypair = generateMADHKeypair()    // TODO: Correct to call this our ephemeral public key?
+            val newSecureKeypair = generateEphemeralKeypair()    // TODO: Correct to call this our ephemeral public key?
             newSecureKeypair.use { newKeypair ->
                 val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
                 ratchetInternalWithNewKey(
@@ -355,8 +355,6 @@ object Ratchet
      * Returns 64 bytes (32 for root key, 32 for chain key)
      */
 
-    // TODO: Missing infobytes in t1? Should be infoBytes + ByteArrayof(0x01)
-    // TODO: Missing infobytes in t2? Should be infoBytes + ByteArrayOf(0x02)
 
     private fun performHKDFtoGetRootAndChainKeyMaterial(oldRootKey: ByteArray, sharedSecret: Secret, info: String): ByteArray
     {
@@ -397,7 +395,15 @@ object Ratchet
         return newOutput ?: throw Exception("Something went wrong")
     }
 
+
+    /**
+     * Before any user has sent a message, no ECDH has happened yet, so we fall back to a key
+     * derived from the longterm private key.
+     */
+
     private fun deriveKeyFromLocalLongtermPrivateKey(longtermPrivateKey: Curve25519PrivateKey, info: String): Curve25519PrivateKey {
+        require(longtermPrivateKey.bytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key"}
+
         var newOutput: ByteArray? = null
         val salt = ByteArray(NUM_BYTES_IN_KEY)
         val prk = performHMAC(salt, longtermPrivateKey.bytes)
@@ -426,11 +432,10 @@ object Ratchet
      * Secure wrapper for keypair maker
      *
      *
+
      */
 
-    // TODO: Secure? Check if the sibling library makes a copy, or what.
-
-    fun generateMADHKeypair(): SecureKeypair {
+    private fun generateEphemeralKeypair(): SecureKeypair {
         return SecureKeypair(MADH.generateKeypair())
     }
 

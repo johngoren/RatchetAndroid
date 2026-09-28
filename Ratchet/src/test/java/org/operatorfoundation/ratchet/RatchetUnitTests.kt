@@ -2,6 +2,7 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Test
 import org.junit.Assert.*
+import org.operatorfoundation.ratchet.TestUtils.mockKeypair
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
@@ -178,8 +179,8 @@ class RatchetUnitTests {
 
     @Test
     fun `Single use ratchet state can make a copy that survives destruction of original`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
             val secureRatchetState = Ratchet.newRatchetState(
@@ -203,8 +204,8 @@ class RatchetUnitTests {
 
     @Test
     fun `newRatchetState creates initial state with longterm keys only`() {
-        val aliceSecureKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceSecureKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         aliceSecureKeypair.use { aliceKeypair ->
             bobKeypair.use { bobKeypair ->
@@ -249,8 +250,8 @@ class RatchetUnitTests {
 
     @Test
     fun `ratchetForSend generates ephemeral keys and derives chain`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
@@ -286,8 +287,8 @@ class RatchetUnitTests {
 
     @Test
     fun `ratchetForReceive generates state from sender ephemeral key`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
@@ -295,7 +296,7 @@ class RatchetUnitTests {
             secureInitialState.use { initialState ->
 
                 // Bob sends his ephemeral key
-                val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+                val bobEphemeralKeypair = mockKeypair()
 
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -329,9 +330,9 @@ class RatchetUnitTests {
 
     @Test
     fun `symmetricRatchet advances symmetric ratchet`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
-        val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
+        val bobEphemeralKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
@@ -387,8 +388,8 @@ class RatchetUnitTests {
 
     @Test
     fun `ratchetWithoutNewKey fails on initial state`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
@@ -407,13 +408,13 @@ class RatchetUnitTests {
 
     @Test
     fun `multiple symmetric ratchets produce different keys`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+            val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -455,14 +456,14 @@ class RatchetUnitTests {
 
     @Test
     fun `encrypt and decrypt round trip`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
             secureInitialState.use { initialState ->
-                val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+                val bobEphemeralKeypair = mockKeypair()
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
                     Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { state ->
@@ -488,13 +489,13 @@ class RatchetUnitTests {
 
     @Test
     fun `encrypt produces different ciphertext each time`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+            val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -519,13 +520,13 @@ class RatchetUnitTests {
 
     @Test
     fun `decrypt with wrong key fails`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+            val bobEphemeralKeypair = mockKeypair()
 
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
@@ -563,13 +564,13 @@ class RatchetUnitTests {
     @Test
     fun `single party can encrypt and decrypt with consistent state`() {
         // This tests that a single party (Alice) can use the ratchet correctly
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+            val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -596,15 +597,15 @@ class RatchetUnitTests {
     @Test
     fun `message exchange with explicit key coordination`() {
         // This demonstrates how the protocol would work with explicit key sharing
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
             // Alice initializes and performs first ratchet
             val aliceSecureInitialState =
                 Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+            val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -659,15 +660,15 @@ class RatchetUnitTests {
 
     @Test
     fun `message keys evolve correctly through multiple ratchets`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
-                val bobEphemeralKeypair = Ratchet.generateMADHKeypair()
+                val bobEphemeralKeypair = mockKeypair()
 
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
@@ -695,10 +696,10 @@ class RatchetUnitTests {
 
     @Test
     fun `DH ratchet changes all keys`() {
-        val aliceKeypair = Ratchet.generateMADHKeypair()
-        val bobKeypair = Ratchet.generateMADHKeypair()
-        val bobEphemeral1 = Ratchet.generateMADHKeypair()
-        val bobEphemeral2 = Ratchet.generateMADHKeypair()
+        val aliceKeypair = mockKeypair()
+        val bobKeypair = mockKeypair()
+        val bobEphemeral1 = mockKeypair()
+        val bobEphemeral2 = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
 
