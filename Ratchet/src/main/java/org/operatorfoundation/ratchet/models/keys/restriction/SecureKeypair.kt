@@ -18,7 +18,7 @@ open class SecureKeypair(private val curve25519KeyPair: Curve25519KeyPair): Auto
     val publicKey: Curve25519PublicKey
         get() {
             return Curve25519PublicKey(_publicKeyBytes.copyOf())
-        }
+    }
 
     fun use(block: (Curve25519KeyPair)->Unit) {
         check(!isDestroyed) { "Keypair has been destroyed "}
@@ -27,14 +27,20 @@ open class SecureKeypair(private val curve25519KeyPair: Curve25519KeyPair): Auto
         }
     }
 
-    fun copyPublicKeyBytes(): ByteArray {
+    private fun copyPublicKeyBytes(): ByteArray {
         check(!isDestroyed) { "Key has been destroyed "}
         return _keypair.publicKey.bytes.copyOf()
     }
 
-    fun copyPrivateKeyBytes(): ByteArray {
+    private fun copyPrivateKeyBytes(): ByteArray {
         check(!isDestroyed) { "Key has been destroyed "}
         return _keypair.privateKey.bytes.copyOf()
+    }
+
+    fun deepCopy(): SecureKeypair {
+        return SecureKeypair(
+            Curve25519KeyPair(Curve25519PublicKey(copyPublicKeyBytes()), Curve25519PrivateKey(copyPrivateKeyBytes()))
+        )
     }
 
     override fun close() {
@@ -59,6 +65,5 @@ open class SecureKeypair(private val curve25519KeyPair: Curve25519KeyPair): Auto
     {
         throw SecurityException("Hash codes have been disabled for security")
     }
-
 
 }

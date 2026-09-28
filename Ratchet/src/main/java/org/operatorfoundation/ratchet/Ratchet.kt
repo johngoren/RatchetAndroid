@@ -60,22 +60,22 @@ object Ratchet
 
         require(sessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID"}
 
-        localLongtermKeypair.use { keypair ->
-
-            val localLongtermPrivateKey = keypair.privateKey
+        localLongtermKeypair.use { localKeypair ->
 
             // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
-            val sharedSecret = ecdh(localLongtermPrivateKey, remoteLongtermPublicKey)
+            val sharedSecret = ecdh(localKeypair.privateKey, remoteLongtermPublicKey)
             val hkdfOutput = performHKDFtoDeriveRootKeyMaterial(ByteArray(NUM_BYTES_IN_KEY), sharedSecret, getInfoFieldForInitialRootKey(sessionId))
-            val initialRootKey = RootKey.fromHKDF(hkdfOutput)
 
             // Return initial state with defaults for optional fields
             val newState = RatchetState(
-                localLongtermKeypair = localLongtermKeypair,
-                remoteLongtermPublicKey = remoteLongtermPublicKey,
-                rootKey = initialRootKey,
+                localLongtermKeypair = localLongtermKeypair.deepCopy(),
+                remoteLongtermPublicKey = remoteLongtermPublicKey.copy(),       // TODO: Deep?
+                rootKey = RootKey.fromHKDF(hkdfOutput),
                 sessionId = sessionId
             )
+
+            sharedSecret.close()
+            hkdfOutput.fill(0)
 
             newRatchetState = SecureRatchetState(newState)
         }

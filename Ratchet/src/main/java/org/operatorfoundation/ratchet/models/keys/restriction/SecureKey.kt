@@ -2,7 +2,7 @@ package org.operatorfoundation.ratchet.models.keys.restriction
 
 import org.operatorfoundation.ratchet.Ratchet
 
-open class SecureKey(private val keyBytes: ByteArray) {
+open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
     var isDestroyed: Boolean = false
 
     private val _keyBytes: ByteArray
@@ -12,7 +12,6 @@ open class SecureKey(private val keyBytes: ByteArray) {
             "AES-256 key must be ${Ratchet.NUM_BYTES_IN_KEY} bytes"
         }
         _keyBytes = keyBytes.copyOf()
-//        keyBytes.fill(0)
     }
 
     // TODO: Replace with use block exclusively
@@ -35,9 +34,9 @@ open class SecureKey(private val keyBytes: ByteArray) {
         return _keyBytes.copyOf()
     }
 
-    fun close() {
+    override fun close() {
         if (!isDestroyed) {
-            keyBytes.fill(0)
+            _keyBytes.fill(0)
             isDestroyed = true
         }
     }
