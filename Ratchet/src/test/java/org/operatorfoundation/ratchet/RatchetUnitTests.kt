@@ -619,6 +619,7 @@ class RatchetUnitTests {
         // This demonstrates how the protocol would work with explicit key sharing
         val aliceKeypair = mockKeypair()
         val bobKeypair = mockKeypair()
+        var alice1messageKey: MessageKey? = null
 
         bobKeypair.use { bobKeypair ->
             // Alice initializes and performs first ratchet
@@ -642,6 +643,7 @@ class RatchetUnitTests {
                             "Message 1".toByteArray()
                         )
                     val ciphertext1 = Ratchet.encrypt(aliceState1peek.messageKey!!, message1)
+                    alice1messageKey = MessageKey(aliceState1peek.messageKey.bytes)
 
                     // Alice advances her ratchet for message 2
                     val aliceState2 = Ratchet.symmetricRatchetWithoutIncomingKey(aliceState1)
@@ -658,7 +660,7 @@ class RatchetUnitTests {
 
                         // Both messages can be decrypted with their respective keys
                         val decrypted1 =
-                            Ratchet.decrypt(aliceState1peek.messageKey!!, ciphertext1)
+                            Ratchet.decrypt(alice1messageKey!!, ciphertext1)
                         val decrypted2 =
                             Ratchet.decrypt(aliceState2peek.messageKey!!, ciphertext2)
 
