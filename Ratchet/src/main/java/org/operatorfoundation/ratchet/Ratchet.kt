@@ -256,6 +256,7 @@ object Ratchet
         finally {
             chainHmacOutput?.fill(0)
             messageHmacOutput?.fill(0)
+            oldState.close()
         }
     }
 

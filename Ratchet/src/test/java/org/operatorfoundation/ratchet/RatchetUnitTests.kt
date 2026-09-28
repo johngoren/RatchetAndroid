@@ -2,6 +2,7 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Test
 import org.junit.Assert.*
+import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.TestUtils.mockKeypair
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
@@ -334,6 +335,14 @@ class RatchetUnitTests {
         val bobKeypair = mockKeypair()
         val bobEphemeralKeypair = mockKeypair()
 
+        var state1chainKey: ByteArray? = null
+        var state1rootKey: ByteArray? = null
+        var state1messageKey: ByteArray? = null
+        var state1sharedKey: ByteArray? = null
+        var state1localPrivatekey: ByteArray? = null
+        var state1localEphemeralPublic: ByteArray? = null
+        var state1remoteEphemeralPublic: ByteArray? = null
+
         bobKeypair.use { bobKeypair ->
 
             // Setup: create state with ephemeral keys
@@ -347,6 +356,17 @@ class RatchetUnitTests {
 
             secureState1.use { state1 ->
 
+                state1rootKey = state1.rootKey.bytes.copyOf()
+                state1chainKey = state1.chainKey?.bytes?.copyOf()
+                state1messageKey = state1.messageKey?.bytes?.copyOf()
+                state1sharedKey = state1.sharedKey?.bytes?.copyOf()
+                state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
+                state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytes
+
+                state1.localLongtermKeypair.use { state1LocalLongtermKeypair ->
+                    state1localPrivatekey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
+                }
+
                 // Advance without new keys
                 Ratchet.symmetricRatchetWithoutIncomingKey(secureState1).use { state2 ->
 
@@ -354,33 +374,33 @@ class RatchetUnitTests {
                     assertEquals(2, state2.messageNumber)
 
                     // Chain key and message key should change
-                    assertFalse(state1.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                    assertFalse(state1.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                    assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytes))
+                    assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytes))
 
                     // Shared key and ephemeral keys should stay the same
                     assertArrayEquals(
-                        state1.sharedKey!!.bytes,
+                        state1sharedKey!!,
                         state2.sharedKey!!.bytes
                     )
                     assertArrayEquals(
-                        state1.localEphemeralKeypair?.publicKey?.bytes,
+                        state1localEphemeralPublic,
                         state2.localEphemeralKeypair?.publicKey?.bytes
                     )
-                    state1.localLongtermKeypair.use { state1Keypair ->
-                        state2.localLongtermKeypair.use { state2Keypair ->
-                            assertArrayEquals(
-                                state1Keypair.privateKey.bytes,
-                                state2Keypair.privateKey.bytes
-                            )
-                        }
+
+                    state2.localLongtermKeypair.use { state2Keypair ->
+                        assertArrayEquals(
+                            state1localPrivatekey,
+                            state2Keypair.privateKey.bytes
+                        )
+
                     }
                     assertArrayEquals(
-                        state1.remoteEphemeralPublicKey?.bytes,
+                        state1remoteEphemeralPublic,
                         state2.remoteEphemeralPublicKey?.bytes
                     )
 
                     // Root key should stay the same
-                    assertArrayEquals(state1.rootKey.bytes, state2.rootKey.bytes)
+                    assertArrayEquals(state1rootKey, state2.rootKey.bytes)
                 }
             }
         }
