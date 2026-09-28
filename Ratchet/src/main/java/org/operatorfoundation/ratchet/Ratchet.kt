@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet
 
+import org.bouncycastle.util.encoders.UTF8
 import org.operatorfoundation.aes.AesGcmKey
 import org.operatorfoundation.aes.Ciphertext
 import org.operatorfoundation.madh.Curve25519PrivateKey
@@ -15,6 +16,7 @@ import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
+import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -60,7 +62,7 @@ object Ratchet
         var newRatchetState: SecureRatchetState? = null
 
         val copyOfLongtermKeypair = localLongtermKeypair.deepCopy()
-        val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.copy()
+        val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.copy() // TODO: Check if actual copy.
         var hkdfOutput: ByteArray? = null
         var sharedSecret: Secret? = null
 
@@ -118,8 +120,6 @@ object Ratchet
         remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
-        var nextRatchetState: SecureRatchetState? = null
-
         var copyOfLocalLongtermKeypair: SecureKeypair? = null
         var copyOfRemotePublicKey: Curve25519PublicKey? = null
         var copyOfOldRootKey: SecureKey? = null
@@ -438,7 +438,7 @@ object Ratchet
      */
 
 
-    private fun performHKDFtoGetRootAndChainKeyMaterial(oldRootKey: ByteArray, sharedSecret: Secret, info: String): ByteArray
+    private fun performHKDFtoGetRootAndChainKeyMaterial(oldRootKey: ByteArray, sharedSecret: Secret, info: ByteArray): ByteArray
     {
         var result: ByteArray? = null
 
@@ -447,9 +447,8 @@ object Ratchet
             val prk = performHMAC(oldRootKey, sharedKey)
 
             // HKDF-Expand: Generate 64 bytes (32 for new root key, 32 for chain key)
-            val infoBytes = info.toByteArray()
-            val t1 = performHMAC(prk, infoBytes + byteArrayOf(0x01))
-            val t2 = performHMAC(prk, t1 + infoBytes + byteArrayOf(0x02))
+            val t1 = performHMAC(prk, info + byteArrayOf(0x01))
+            val t2 = performHMAC(prk, t1 + info + byteArrayOf(0x02))
             result = t1 + t2
 
         }
@@ -457,7 +456,7 @@ object Ratchet
         return result ?: throw Exception("Something went wrong")
     }
 
-    private fun performHKDFtoDeriveRootKeyMaterial(salt: ByteArray? = null, sharedSecret: Secret, info: String): ByteArray {
+    private fun performHKDFtoDeriveRootKeyMaterial(salt: ByteArray? = null, sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
         val salt = salt ?: ByteArray(NUM_BYTES_IN_KEY)
 
@@ -469,21 +468,19 @@ object Ratchet
 
             // HKDF-Expand: Generate 32-bytes
 
-            val infoBytes = info.toByteArray()
-            val t1 = performHMAC(prk, infoBytes + byteArrayOf(0x01))
+            val t1 = performHMAC(prk, info + byteArrayOf(0x01))
             newOutput = t1
         }
 
         return newOutput ?: throw Exception("Something went wrong")
     }
 
-
     /**
      * Before any user has sent a message, no ECDH has happened yet, so we fall back to a key
      * derived from the longterm private key.
      */
 
-    private fun deriveKeyFromLocalLongtermPrivateKey(longtermPrivateKey: Curve25519PrivateKey, info: String): Curve25519PrivateKey {
+    private fun deriveKeyFromLocalLongtermPrivateKey(longtermPrivateKey: Curve25519PrivateKey, info: ByteArray): Curve25519PrivateKey {
         require(longtermPrivateKey.bytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key"}
 
         var newOutput: ByteArray? = null
@@ -492,7 +489,7 @@ object Ratchet
 
         // HKDF-Expand: Generate 32 bytes
 
-        val infoBytes = info.toByteArray()
+        val infoBytes = info
         newOutput = performHMAC(prk, infoBytes + byteArrayOf(0x01)) // TODO: Why are we adding this
         val newKey = Curve25519PrivateKey(newOutput )
         return newKey
@@ -518,28 +515,35 @@ object Ratchet
         return SecureKeypair(MADH.generateKeypair())
     }
 
+    private fun getInfoArray(prefix: String, sessionId: ByteArray): ByteArray {
+        val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
+        return ByteBuffer.allocate((prefixBytes.size + sessionId.size))
+            .put(prefixBytes)
+            .put(sessionId)
+            .array()
+
+    }
     // Binds initial root key to session
-    private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): String {
+
+    private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-        val sessionString = String(sessionId)
-        return "SHOUT-Initializing root key for session $sessionString"
+
+        return getInfoArray("SHOUT_ROOT", sessionId)
     }
 
-    private fun getInfoFieldForRatchet(sessionId: ByteArray): String {
+    private fun getInfoFieldForRatchet(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-        val sessionString = String(sessionId)
-        val infoValue = "SHOUT-Ratcheting chain key for session $sessionString"
-        return infoValue
+
+        return getInfoArray("SHOUT_CHAIN_KEY", sessionId)
     }
 
+    // TODO: Check if this info value will trip us up in this situation,
+    // as it is sharing a domain with the other key in Operator's MADH library
 
-    // TODO: Check if this info value will trip us up in this situation
-
-    private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): String {
+    private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-        val sessionString = String(sessionId)
-        val infoValue = "Shout-Deriving first ephemeral key for session $sessionString"
-        return infoValue
+
+        return getInfoArray("SHOUT_EPHEMERAL", sessionId)
     }
 
 }
