@@ -30,6 +30,9 @@ import javax.crypto.spec.SecretKeySpec
  *
  */
 
+// TODO: Anything that is .copy() is not good enough because it only references a shared byte array object
+
+
 object Ratchet
 {
     const val NUM_BYTES_IN_KEY = 32
@@ -403,40 +406,48 @@ object Ratchet
 
     // ========== Fundamental operations ==========
 
-
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
     /**
      * Perform Elliptic Curve Diffie-Hellman key exchange using BouncyCastle
+     *
+     * TODO: Per report, must also handle error state
      */
     private fun ecdh(privateKey: Curve25519PrivateKey, publicKey: Curve25519PublicKey): Secret
     {
-        // BouncyCastle X25519 key agreement
-        val privateKeyBytes = privateKey.bytes
-        val publicKeyBytes = publicKey.bytes
+        return try {
+            // BouncyCastle X25519 key agreement
+            val privateKeyBytes = privateKey.bytes
+            val publicKeyBytes = publicKey.bytes
 
-        // Ensure we have the correct key sizes
-        require(privateKeyBytes.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
-        require(publicKeyBytes.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
+            // Ensure we have the correct key sizes
+            require(privateKeyBytes.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
+            require(publicKeyBytes.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
 
-        // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
-        val sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
-        org.bouncycastle.math.ec.rfc7748.X25519.scalarMult(
-            privateKeyBytes,
-            0,
-            publicKeyBytes,
-            0,
-            sharedSecret,
-            0
-        )
-        return Secret(sharedSecret)
+            // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
+            val sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
+            org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
+                privateKeyBytes,
+                0,
+                publicKeyBytes,
+                0,
+                sharedSecret,
+                0
+            )
+            return Secret(sharedSecret)
+        }
+        catch(e: Exception) {
+            throw e // TODO: Throw specific exception requiring renegotiation (of handshake?)
+        }
+        finally {
+
+        }
     }
 
     /**
      * HKDF (HMAC-based Key Derivation Function) implementation
      * Returns 64 bytes (32 for root key, 32 for chain key)
      */
-
 
     private fun performHKDFtoGetRootAndChainKeyMaterial(oldRootKey: ByteArray, sharedSecret: Secret, info: ByteArray): ByteArray
     {
@@ -499,6 +510,7 @@ object Ratchet
     /**
      * HMAC-SHA256 function
      */
+
     private fun performHMAC(key: ByteArray, data: ByteArray): ByteArray
     {
         val mac = Mac.getInstance(HMAC_ALGORITHM)
@@ -537,10 +549,6 @@ object Ratchet
         return getInfoArray(KeyContext.ChainKey.INFOPREFIX, sessionId)
     }
 
-    // TODO: Check if this info value will trip us up in this situation,
-    // as it is sharing a domain with the other key in Operator's MADH library
-    // but uses a different context. Does it matter? Maybe not.
-
     private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): ByteArray {
         require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
 
@@ -551,18 +559,18 @@ object Ratchet
 
 object KeyContext {
     object RootKey {
-        val SALT = "SHOUT-v1-Salt-RootKey"
-        val INFOPREFIX = "SHOUT-ROOT"
+        const val SALT = "SHOUT-v1-Salt-RootKey"
+        const val INFOPREFIX = "SHOUT-ROOT"
     }
 
     object ChainKey {
-        val SALT = "SHOUT-v1-Salt-ChainKey"
-        val INFOPREFIX = "SHOUT-CHAIN"
+        const val SALT = "SHOUT-v1-Salt-ChainKey" // TODO: Not needed because the salt IS the previous chain, right?
+        const val INFOPREFIX = "SHOUT-CHAIN"
     }
 
     object EphemeralKey {
-        val SALT = "SHOUT-v1-Salt-Ephemeral"
-        val INFOPREFIX = "SHOUT-EPHEMERAL"
+        const val SALT = "SHOUT-v1-Salt-Ephemeral"
+        const val INFOPREFIX = "SHOUT-EPHEMERAL"
     }
 
 }
