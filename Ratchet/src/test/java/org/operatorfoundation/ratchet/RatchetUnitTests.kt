@@ -361,7 +361,7 @@ class RatchetUnitTests {
                 state1messageKey = state1.messageKey?.bytes?.copyOf()
                 state1sharedKey = state1.sharedKey?.bytes?.copyOf()
                 state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
-                state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytes
+                state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytes?.copyOf()
 
                 state1.localLongtermKeypair.use { state1LocalLongtermKeypair ->
                     state1localPrivatekey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
