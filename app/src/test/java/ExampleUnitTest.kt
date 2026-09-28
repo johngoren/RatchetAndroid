@@ -1,5 +1,3 @@
-package org.operatorfoundation.ratchedandroid
-
 import org.junit.Test
 
 import org.junit.Assert.*

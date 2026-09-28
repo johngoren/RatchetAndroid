@@ -17,7 +17,7 @@ class SharedKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 
             sharedSecret.use { sharedSecret ->
                 require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
-                sharedKey = SharedKey(sharedSecret)
+                sharedKey = SharedKey(sharedSecret.copyOf())
             }
 
             return sharedKey ?: throw Exception("Something went wrong")

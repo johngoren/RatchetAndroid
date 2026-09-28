@@ -22,16 +22,16 @@ class RatchetIntegrationTest {
                 bobKeypair.publicKey
             )
 
-            secureRatchetState.use { state ->
-                assertNotNull(state.rootKey)
-                assertEquals(0, state.messageNumber)
+            secureRatchetState.use { statePeek ->
+                assertNotNull(statePeek.rootKey)
+                assertEquals(0, statePeek.messageNumber)
 
                 // Ephemeral keys are not yet generated
-                assertNull(state.chainKey)
-                assertNull(state.sharedKey)
-                assertNull(state.messageKey)
-                assertNull(state.localEphemeralKeypair)
-                assertNull(state.remoteEphemeralPublicKey)
+                assertNull(statePeek.chainKey)
+                assertNull(statePeek.sharedKey)
+                assertNull(statePeek.messageKey)
+                assertNull(statePeek.localEphemeralKeypair)
+                assertNull(statePeek.remoteEphemeralPublicKey)
             }
         }
     }
