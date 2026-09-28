@@ -1,6 +1,5 @@
 package org.operatorfoundation.ratchet
 
-import org.bouncycastle.util.encoders.UTF8
 import org.operatorfoundation.aes.AesGcmKey
 import org.operatorfoundation.aes.Ciphertext
 import org.operatorfoundation.madh.Curve25519PrivateKey
@@ -29,8 +28,6 @@ import javax.crypto.spec.SecretKeySpec
  *
  *
  */
-
-// TODO: Anything that is .copy() is not good enough because it only references a shared byte array object
 
 
 object Ratchet
@@ -65,7 +62,7 @@ object Ratchet
         var newRatchetState: SecureRatchetState? = null
 
         val copyOfLongtermKeypair = localLongtermKeypair.deepCopy()
-        val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.copy() // TODO: Check if actual copy.
+        val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.bytes.copyOf()
         var hkdfOutput: ByteArray? = null
         var sharedSecret: Secret? = null
 
@@ -85,7 +82,7 @@ object Ratchet
                 // Return initial state with defaults for optional fields
                 val newState = RatchetState(
                     localLongtermKeypair = copyOfLongtermKeypair,
-                    remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey.bytes),
+                    remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey),
                     rootKey = RootKey.fromHKDF(hkdfOutput),
                     sessionId = sessionId
                 )
@@ -152,7 +149,7 @@ object Ratchet
             var localEphemeralPrivateKey: Curve25519PrivateKey? = null
             if (localEphemeralKeypair != null) {
                 localEphemeralKeypair.use { localEphemeralKeypairPeek ->
-                    localEphemeralPrivateKey = localEphemeralKeypairPeek.privateKey.copy()
+                    localEphemeralPrivateKey = Curve25519PrivateKey(localEphemeralKeypairPeek.privateKey.bytes.copyOf())
                 }
             } else {
                 longtermKeypair?.use { longtermKeypairPeek ->
@@ -415,10 +412,11 @@ object Ratchet
      */
     private fun ecdh(privateKey: Curve25519PrivateKey, publicKey: Curve25519PublicKey): Secret
     {
+        val privateKeyBytes = privateKey.bytes.copyOf()
+        val publicKeyBytes = publicKey.bytes.copyOf()
+
         return try {
             // BouncyCastle X25519 key agreement
-            val privateKeyBytes = privateKey.bytes
-            val publicKeyBytes = publicKey.bytes
 
             // Ensure we have the correct key sizes
             require(privateKeyBytes.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
@@ -426,7 +424,7 @@ object Ratchet
 
             // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
             val sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
-            org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
+            val successfulKeyAgreement = org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
                 privateKeyBytes,
                 0,
                 publicKeyBytes,
@@ -434,13 +432,22 @@ object Ratchet
                 sharedSecret,
                 0
             )
+            if (!successfulKeyAgreement) {
+                sharedSecret.fill(0)
+                throw SecurityException("Invalid key agreement")
+            }
             return Secret(sharedSecret)
         }
+        catch(e: SecurityException) {
+            // TODO: Handle renegotiation of handshake
+            throw e
+        }
         catch(e: Exception) {
-            throw e // TODO: Throw specific exception requiring renegotiation (of handshake?)
+            throw e // TODO: Throw specific exception requiring renegotiation of handshake?
         }
         finally {
-
+            publicKeyBytes.fill(0)
+            privateKeyBytes.fill(0)
         }
     }
 
