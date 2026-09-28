@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet
 
+import org.operatorfoundation.aes.AesGcmKey
 import org.operatorfoundation.aes.Ciphertext
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
@@ -191,9 +192,7 @@ object Ratchet
                 localEphemeralKeypair = longtermKeypair,
                 remoteEphemeralPublicKey = remotePublicKey
             )
-
-            nextRatchetState = SecureRatchetState(newState)
-            nextRatchetState
+            SecureRatchetState(newState)
         }
         catch(e: Exception) {
             throw e
@@ -237,14 +236,12 @@ object Ratchet
                 // Derive new message key: M_n = HMAC(C_n, n)
                 messageHmacOutput =
                     performHMAC(newChainKey.bytes, newMessageNumber.toString().toByteArray())
-                val newMessageKey = MessageKey.fromHMAC(messageHmacOutput)
 
                 val newState = oldState.deepCopy(
                     messageNumber = newMessageNumber,
                     chainKey = newChainKey,
-                    messageKey = newMessageKey
+                    messageKey = MessageKey.fromHMAC(messageHmacOutput)
                 )
-
                 nextRatchetState = SecureRatchetState(newState)
             }
 
@@ -273,21 +270,25 @@ object Ratchet
     {
         var result: RatchetSendResult? = null
 
-        oldState.use { oldState ->
-            val newSecureKeypair = generateEphemeralKeypair()    // TODO: Correct to call this our ephemeral public key?
-            newSecureKeypair.use { newKeypair ->
-                val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-                ratchetInternalWithNewKey(
-                    oldState=SecureRatchetState(oldState),
-                    longtermKeypair = null,
-                    localEphemeralKeypair = newSecureKeypair,
-                    remotePublicKey = remoteKey).use { newState ->
-                    val newRatchetState = SecureRatchetState(newState)
-                    result = RatchetSendResult(newRatchetState, newKeypair.publicKey)
-                }
+        return try {
+            oldState.use { oldState ->
+                val newSecureKeypair = generateEphemeralKeypair()
+                    val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
+                    ratchetInternalWithNewKey(
+                        oldState=SecureRatchetState(oldState),
+                        longtermKeypair = null,
+                        localEphemeralKeypair = newSecureKeypair,
+                        remotePublicKey = remoteKey)
+                    .use { newState ->
+                        val newRatchetState = SecureRatchetState(newState)
+                        result = RatchetSendResult(newRatchetState, newSecureKeypair.publicKey)
+                    }
             }
+            result ?: throw Exception("Null ratchet send result")
         }
-        return result ?: throw Exception("Null ratchet send result")
+        catch(e: Exception) {
+            throw e             // TODO: Error handling
+        }
     }
 
     /**
@@ -298,27 +299,37 @@ object Ratchet
      * @param incomingEphemeralPublicKey The ephemeral public key received from the sender
      * @return The updated ratchet state
      */
-    fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState
-    {
+    fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
 
-        oldStateSecure.use { oldStatePeek ->
+        return try {
+            oldStateSecure.use { oldStatePeek ->
 
-            val ephemeralKeypair = oldStatePeek.localEphemeralKeypair
-            val fallbackToLongtermKeypair = if (ephemeralKeypair != null) { null } else { oldStatePeek.localLongtermKeypair }
+                val ephemeralKeypair = oldStatePeek.localEphemeralKeypair
+                val fallbackToLongtermKeypair = if (ephemeralKeypair != null) {
+                    null
+                } else {
+                    oldStatePeek.localLongtermKeypair
+                }
 
-            val resultingRatchetState = ratchetInternalWithNewKey(
-                oldState = oldStateSecure,
-                longtermKeypair = fallbackToLongtermKeypair,
-                localEphemeralKeypair = ephemeralKeypair,
-                remotePublicKey = incomingEphemeralPublicKey,
-            )
+                val resultingRatchetState = ratchetInternalWithNewKey(
+                    oldState = oldStateSecure,
+                    longtermKeypair = fallbackToLongtermKeypair,
+                    localEphemeralKeypair = ephemeralKeypair,
+                    remotePublicKey = incomingEphemeralPublicKey,
+                )
 
-            newRatchetState = resultingRatchetState
+                newRatchetState = resultingRatchetState
+            }
+            require(newRatchetState != null) { "Null ratchet state" }
+            newRatchetState
+        } catch(e: Exception) {
+            throw e     // TODO: Error-handling
         }
-        return newRatchetState ?: throw Exception("Null ratchet state")
-    }
+        finally {
 
+        }
+    }
 
 
     // ========== Encrypting and decrypting ==========
@@ -333,15 +344,27 @@ object Ratchet
      */
     fun encrypt(key: MessageKey, plaintext: PlaintextMessage): Ciphertext
     {
-        // Serialize the plaintext message to bytes
-        val plaintextBytes = plaintext.toBytes()
+        var copyOfPlaintextBytes: ByteArray? = null
+        var aesKey: AesGcmKey? = null
 
-        // Create AES-GCM key from the message key
-        val aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+        return try {
+            // Serialize the plaintext message to bytes
+            copyOfPlaintextBytes = plaintext.toBytes()
 
-        // Create cipher and encrypt
-        val cipher = org.operatorfoundation.aes.AesCipher()
-        return cipher.encrypt(aesKey, plaintextBytes)
+            // Create AES-GCM key from the message key
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+
+            // Create cipher and encrypt
+            val cipher = org.operatorfoundation.aes.AesCipher()
+            return cipher.encrypt(aesKey, copyOfPlaintextBytes)
+        }
+        catch(e: Exception) {
+            throw e // TODO: Error handling
+        }
+        finally {
+            copyOfPlaintextBytes?.fill(0)
+            aesKey?.bytes?.fill(0)
+        }
     }
 
     /**
@@ -354,20 +377,26 @@ object Ratchet
      */
     fun decrypt(key: MessageKey, ciphertext: Ciphertext): PlaintextMessage?
     {
-        try {
+        var aesKey: AesGcmKey? = null
+        var decryptedBytes: ByteArray? = null
+
+        return try {
 
             // Create AES-GCM key from the message key
-            val aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
 
             // Create cipher and decrypt
             val cipher = org.operatorfoundation.aes.AesCipher()
-            val decryptedBytes = cipher.decrypt(aesKey, ciphertext)
+            decryptedBytes = cipher.decrypt(aesKey, ciphertext)
 
             // Deserialize the plaintext message
-            return PlaintextMessage.fromBytes(decryptedBytes)
+            PlaintextMessage.fromBytes(decryptedBytes.copyOf())
         }
         catch(e: IllegalArgumentException) {
             return null
+        }
+        finally {
+            decryptedBytes?.fill(0)
         }
     }
 
