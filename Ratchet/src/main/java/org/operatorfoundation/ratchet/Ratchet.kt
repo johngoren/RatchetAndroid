@@ -77,13 +77,13 @@ object Ratchet
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
                     KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
-                    getInfoFieldForInitialRootKey(copyOfSessionId)
+                    getInfoFieldForInitialRootKey(copyOfSessionId.copyOf())
                 )
 
                 // Return initial state with defaults for optional fields
                 val newState = RatchetState(
                     localLongtermKeypair = copyOfLongtermKeypair,
-                    remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey),
+                    remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey.copyOf()),
                     rootKey = RootKey.fromHKDF(hkdfOutput),
                     sessionId = copyOfSessionId.copyOf()
                 )
@@ -134,8 +134,8 @@ object Ratchet
             oldState.use { oldStatePeek ->
                 oldStatePeek.apply {
                     copyOfLocalLongtermKeypair = localLongtermKeypair.deepCopy()
-                    copyOfRemotePublicKey = Curve25519PublicKey(remotePublicKey.bytes)
-                    copyOfOldRootKey = RootKey(rootKey.copyBytes())
+                    copyOfRemotePublicKey = Curve25519PublicKey(remotePublicKey.bytes.copyOf())
+                    copyOfOldRootKey = RootKey(rootKey.bytes)
                     copyOfSessionId = sessionId
                     messageNum = messageNumber
                 }
@@ -202,6 +202,8 @@ object Ratchet
             sharedSecret?.bytes?.fill(0)
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)
+
+            oldState.close()
         }
     }
 
@@ -353,7 +355,7 @@ object Ratchet
             copyOfPlaintextBytes = plaintext.toBytes()
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
 
             // Create cipher and encrypt
             val cipher = org.operatorfoundation.aes.AesCipher()
@@ -384,7 +386,7 @@ object Ratchet
         return try {
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes)
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
 
             // Create cipher and decrypt
             val cipher = org.operatorfoundation.aes.AesCipher()

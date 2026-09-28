@@ -8,6 +8,7 @@ import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.models.keys.RootKey
 import kotlin.test.assertFailsWith
 
 
@@ -285,10 +286,14 @@ class RatchetUnitTests {
         val aliceKeypair = mockKeypair()
         val bobKeypair = mockKeypair()
 
+        var copyOfRootKeyInitial: ByteArray? = null
+
         bobKeypair.use { bobKeypair ->
             val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
+
+                copyOfRootKeyInitial = initialState.rootKey.bytes.copyOf()
 
                 // Bob sends his ephemeral key
                 val bobEphemeralKeypair = mockKeypair()
@@ -310,7 +315,7 @@ class RatchetUnitTests {
                             assertEquals(1, ratchetedState.messageNumber)
 
                             // Root key should be different from initial
-                            assertFalse(initialState.rootKey.bytes.contentEquals(ratchetedState.rootKey.bytes))
+                            assertFalse(copyOfRootKeyInitial.contentEquals(ratchetedState.rootKey.bytes))
 
                             // All keys should be 32 bytes
                             assertEquals(32, ratchetedState.chainKey!!.bytes.size)
@@ -696,6 +701,16 @@ class RatchetUnitTests {
         val bobEphemeral1 = mockKeypair()
         val bobEphemeral2 = mockKeypair()
 
+        var state1RootKey: ByteArray? = null
+        var state1ChainKey: ByteArray? = null
+        var state1SharedKey: ByteArray? = null
+        var state1Messagekey: ByteArray? = null
+        var state1RemoteEphemeralPublicKey: ByteArray? = null
+
+        var state2RootKey: ByteArray? = null
+        var state2ChainKey: ByteArray? = null
+        var state2SharedKey: ByteArray? = null
+
         bobKeypair.use { bobKeypair ->
 
             bobEphemeral1.use { bobEphemeral1 ->
@@ -710,24 +725,31 @@ class RatchetUnitTests {
                         val state1 =
                             Ratchet.ratchetForReceive(secureInitialState, bobEphemeral1.publicKey)
                         state1.use { state1peek ->
+
+                            state1RootKey = state1peek.rootKey.bytes
+                            state1ChainKey = state1peek.chainKey?.bytes
+                            state1SharedKey = state1peek.sharedKey?.bytes
+                            state1Messagekey = state1peek.messageKey?.bytes
+                            state1RemoteEphemeralPublicKey = state1peek.remoteEphemeralPublicKey?.bytes
+
                             Ratchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
                                 .use { state2 ->
 
                                     // All ephemeral keys should be different
-                                    assertFalse(state1peek.rootKey.bytes.contentEquals(state2.rootKey.bytes))
-                                    assertFalse(state1peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
+                                    assertFalse(state1RootKey.contentEquals(state2.rootKey.bytes))
+                                    assertFalse(state1ChainKey.contentEquals(state2.chainKey!!.bytes))
                                     assertFalse(
-                                        state1peek.sharedKey!!.bytes.contentEquals(
+                                        state1SharedKey.contentEquals(
                                             state2.sharedKey!!.bytes
                                         )
                                     )
                                     assertFalse(
-                                        state1peek.messageKey!!.bytes.contentEquals(
+                                        state1Messagekey!!.contentEquals(
                                             state2.messageKey!!.bytes
                                         )
                                     )
                                     assertNotEquals(
-                                        state1peek.remoteEphemeralPublicKey,
+                                        state1RemoteEphemeralPublicKey,
                                         state2.remoteEphemeralPublicKey
                                     )
                                 }

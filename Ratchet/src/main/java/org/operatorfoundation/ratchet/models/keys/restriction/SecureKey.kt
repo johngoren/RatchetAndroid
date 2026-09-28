@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.models.keys.restriction
 
+import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.ratchet.Ratchet
 
 open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
@@ -14,7 +15,7 @@ open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
         _keyBytes = keyBytes.copyOf()
     }
 
-    // TODO: Replace with use block exclusively
+    @VisibleForTesting
     val bytes: ByteArray
         get() {
             check(!isDestroyed) { "Key has been destroyed "}

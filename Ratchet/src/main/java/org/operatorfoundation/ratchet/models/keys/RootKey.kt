@@ -8,6 +8,7 @@ import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
  */
 class RootKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 {
+
     companion object
     {
 
