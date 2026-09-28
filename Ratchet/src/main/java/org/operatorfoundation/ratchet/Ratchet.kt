@@ -53,7 +53,7 @@ object Ratchet
      * @param remoteLongtermPublicKey The remote party's long-term public key
      * @return The initial ratchet state
      */
-    fun newRatchetState(
+    fun initRatchetState(
         localLongtermKeypair: SecureKeypair,
         remoteLongtermPublicKey: Curve25519PublicKey,
         sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce
@@ -63,11 +63,12 @@ object Ratchet
 
         val copyOfLongtermKeypair = localLongtermKeypair.deepCopy()
         val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.bytes.copyOf()
+        val copyOfSessionId = sessionId.copyOf()
         var hkdfOutput: ByteArray? = null
         var sharedSecret: Secret? = null
 
         return try {
-            require(sessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID" }
+            require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID" }
 
             copyOfLongtermKeypair.use { localKeypair ->
 
@@ -76,7 +77,7 @@ object Ratchet
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
                     KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
-                    getInfoFieldForInitialRootKey(sessionId)
+                    getInfoFieldForInitialRootKey(copyOfSessionId)
                 )
 
                 // Return initial state with defaults for optional fields
@@ -84,7 +85,7 @@ object Ratchet
                     localLongtermKeypair = copyOfLongtermKeypair,
                     remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey),
                     rootKey = RootKey.fromHKDF(hkdfOutput),
-                    sessionId = sessionId
+                    sessionId = copyOfSessionId.copyOf()
                 )
                 newRatchetState = SecureRatchetState(newState)
             }
@@ -94,9 +95,9 @@ object Ratchet
             throw e // TODO: Throw specific handled errors.
         }
         finally {
-            // Disabled for now because of tests
-//            copyOfLongtermKeypair.close()
-//            copyOfRemoteLongtermPublicKey.bytes.fill(0)
+            copyOfLongtermKeypair.close()
+            copyOfRemoteLongtermPublicKey.fill(0)
+            copyOfSessionId.fill(0)
             sharedSecret?.close()
             hkdfOutput?.fill(0)
         }
@@ -189,7 +190,7 @@ object Ratchet
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
-                localEphemeralKeypair = longtermKeypair,
+                localEphemeralKeypair = longtermKeypair,    // TODO: Incorrect?
                 remoteEphemeralPublicKey = remotePublicKey
             )
             SecureRatchetState(newState)
@@ -230,7 +231,7 @@ object Ratchet
 
                 // Derive new chain key: C_n = HMAC(C_{n-1}, n)
                 chainHmacOutput =
-                    performHMAC(oldState.chainKey.bytes, newMessageNumber.toString().toByteArray())
+                    performHMAC(oldState.chainKey.bytes.copyOf(), newMessageNumber.toString().toByteArray())
                 val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
 
                 // Derive new message key: M_n = HMAC(C_n, n)

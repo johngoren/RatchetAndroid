@@ -10,7 +10,6 @@ import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import kotlin.test.assertFailsWith
 
-// TODO: Test zeroization!
 
 class RatchetUnitTests {
     // ========== PlaintextMessageType Tests ==========
@@ -179,25 +178,21 @@ class RatchetUnitTests {
 
     @Test
     fun `Single use ratchet state can make a copy that survives destruction of original`() {
-        val aliceKeypair = mockKeypair()
-        val bobKeypair = mockKeypair()
 
-        bobKeypair.use { bobKeypair ->
-            val secureRatchetState = Ratchet.newRatchetState(
-                aliceKeypair,
-                bobKeypair.publicKey
-            )
+        val secureRatchetState = Ratchet.initRatchetState(
+            mockKeypair(),
+            mockKeypair().publicKey
+        )
 
-            var copyOfRatchetState: RatchetState? = null
+        var copyOfRatchetState: RatchetState? = null
 
-            secureRatchetState.use { originalRatchetState ->
-                copyOfRatchetState = originalRatchetState.deepCopy()
-            }
-            secureRatchetState.close()
-
-            assert(copyOfRatchetState != null)
-            assert(copyOfRatchetState?.rootKey?.bytes != null)
+        secureRatchetState.use { originalRatchetState ->
+            copyOfRatchetState = originalRatchetState.deepCopy()
         }
+        secureRatchetState.close()
+
+        assert(copyOfRatchetState != null)
+        assert(copyOfRatchetState?.rootKey?.bytes != null)
     }
 
     // ========== RatchetState Tests ==========
@@ -209,7 +204,7 @@ class RatchetUnitTests {
 
         aliceSecureKeypair.use { aliceKeypair ->
             bobKeypair.use { bobKeypair ->
-                val singleUseRatchetState = Ratchet.newRatchetState(
+                val singleUseRatchetState = Ratchet.initRatchetState(
                     aliceSecureKeypair,
                     bobKeypair.publicKey
                 )
@@ -255,7 +250,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { state ->
 
@@ -291,7 +286,7 @@ class RatchetUnitTests {
         val bobKeypair = mockKeypair()
 
         bobKeypair.use { bobKeypair ->
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
 
@@ -337,7 +332,7 @@ class RatchetUnitTests {
         bobKeypair.use { bobKeypair ->
 
             // Setup: create state with ephemeral keys
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             val secureState1 = Ratchet.ratchetInternalWithNewKey(
                 secureInitialState, aliceKeypair,
@@ -393,7 +388,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val initialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val initialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             // Should fail because there's no chain key yet
             try {
@@ -413,7 +408,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
@@ -461,7 +456,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             secureInitialState.use { initialState ->
                 val bobEphemeralKeypair = mockKeypair()
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
@@ -494,7 +489,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
@@ -525,7 +520,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
 
@@ -569,7 +564,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
@@ -603,7 +598,7 @@ class RatchetUnitTests {
         bobKeypair.use { bobKeypair ->
             // Alice initializes and performs first ratchet
             val aliceSecureInitialState =
-                Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+                Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             val bobEphemeralKeypair = mockKeypair()
 
@@ -665,7 +660,7 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
                 val bobEphemeralKeypair = mockKeypair()
@@ -708,7 +703,7 @@ class RatchetUnitTests {
                 bobEphemeral2.use { bobEphemeral2 ->
 
                     val secureInitialState =
-                        Ratchet.newRatchetState(aliceKeypair, bobKeypair.publicKey)
+                        Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
                     secureInitialState.use { initialState ->
 
