@@ -113,6 +113,7 @@ class RatchetIntegrationTest {
     fun `ratchetForReceive performs DH ratchet step`() {
         val aliceKeypair = mockKeypair()
         val bobKeypair = mockKeypair()
+        var initialStateRootKey: ByteArray? = null
 
         bobKeypair.use { bobKeypair ->
 
@@ -124,6 +125,7 @@ class RatchetIntegrationTest {
             secureInitialState.use { initialState ->
 
                 val senderEphemeralKey = MADH.generateKeypair().publicKey
+                initialStateRootKey = initialState.rootKey.bytes
 
                 Ratchet.ratchetForReceive(secureInitialState, senderEphemeralKey).use { newState ->
 
@@ -135,7 +137,7 @@ class RatchetIntegrationTest {
                     assertNotNull(newState.remoteEphemeralPublicKey)
 
                     // Root key should change
-                    assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
+                    assertFalse(initialStateRootKey.contentEquals(newState.rootKey.bytes))
 
                     // Message number should increment
                     assertEquals(1, newState.messageNumber)

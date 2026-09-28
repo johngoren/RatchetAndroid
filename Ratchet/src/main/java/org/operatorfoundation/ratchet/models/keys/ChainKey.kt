@@ -25,7 +25,7 @@ class ChainKey(bytes: ByteArray): SecureKey(bytes.copyOf())
         fun fromHMAC(hmacOutput: ByteArray): ChainKey
         {
             require(hmacOutput.size == 32) { "HMAC output must be 32 bytes" }
-            return ChainKey(hmacOutput)
+            return ChainKey(hmacOutput.copyOfRange(0, 32))
         }
     }
 
