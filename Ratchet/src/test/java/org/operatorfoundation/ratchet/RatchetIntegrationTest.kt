@@ -161,34 +161,49 @@ class RatchetIntegrationTest {
         )
 
         val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, null, incomingEphemeralKey)
+        var state1chainKey: ByteArray? = null
+        var state1rootKey: ByteArray? = null
+        var state1messageKey: ByteArray? = null
+        var state1sharedKey: ByteArray? = null
+        var state1localPublicKey: ByteArray? = null
+        var state1localPrivateKey: ByteArray? = null
+        var state1remoteEphemeralPublicKey: ByteArray? = null
 
         state1.use { state1Peek ->
 
+            state1chainKey = state1Peek.chainKey?.bytes?.copyOf()
+            state1rootKey = state1Peek.rootKey.bytes.copyOf()
+            state1messageKey = state1Peek.messageKey?.bytes?.copyOf()
+            state1sharedKey = state1Peek.sharedKey?.bytes?.copyOf()
+            state1localPublicKey = state1Peek.localLongtermKeypair.publicKey.bytes.copyOf()
+            state1Peek.localLongtermKeypair.use {
+                state1localPrivateKey = it.privateKey.bytes.copyOf()
+            }
+            state1remoteEphemeralPublicKey = state1Peek.remoteEphemeralPublicKey?.bytes?.copyOf()
+
             Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
                 // Chain and message keys should change (symmetric ratchet)
-                assertFalse(state1Peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                assertFalse(state1Peek.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
+                assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytes))
+                assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytes))
 
                 // Root key, shared key, and ephemeral keys should remain unchanged
-                assertArrayEquals(state1Peek.rootKey.bytes, state2.rootKey.bytes)
+                assertArrayEquals(state1rootKey, state2.rootKey.bytes)
                 assertArrayEquals(
-                    state1Peek.sharedKey!!.bytes,
+                    state1sharedKey!!,
                     state2.sharedKey!!.bytes
                 )
                 assertArrayEquals(
-                    state1Peek.localEphemeralKeypair?.publicKey?.bytes,
+                    state1localPublicKey,
                     state2.localEphemeralKeypair?.publicKey?.bytes
                 )
-                state1Peek.localEphemeralKeypair?.use { state1LocalEphemeralKeypair ->
-                    state2.localEphemeralKeypair?.use { state2LocalEphemeralKeypair ->
-                        assertArrayEquals(
-                            state1LocalEphemeralKeypair.privateKey.bytes,
-                            state2LocalEphemeralKeypair.privateKey.bytes
-                        )
-                    }
+                state2.localEphemeralKeypair?.use { state2LocalEphemeralKeypair ->
+                    assertArrayEquals(
+                        state1localPrivateKey,
+                        state2LocalEphemeralKeypair.privateKey.bytes
+                    )
                 }
                 assertArrayEquals(
-                    state1Peek.remoteEphemeralPublicKey?.bytes,
+                    state1remoteEphemeralPublicKey,
                     state2.remoteEphemeralPublicKey?.bytes
                 )
 
