@@ -10,6 +10,7 @@ import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
 import kotlin.test.assertFailsWith
 
 
@@ -349,9 +350,10 @@ class RatchetUnitTests {
             val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             val secureState1 = Ratchet.ratchetInternalWithNewKey(
-                secureInitialState, aliceKeypair,
-                localEphemeralKeypair = null,
-                remotePublicKey = bobEphemeralKeypair.publicKey
+                secureInitialState,
+                aliceKeypair,
+                null,
+                bobEphemeralKeypair.publicKey,
             )
 
             secureState1.use { state1 ->

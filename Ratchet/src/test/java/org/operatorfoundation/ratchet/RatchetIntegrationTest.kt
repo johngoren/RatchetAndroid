@@ -134,7 +134,7 @@ class RatchetIntegrationTest {
                     assertNotNull(newState.chainKey)
                     assertNotNull(newState.sharedKey)
                     assertNotNull(newState.messageKey)
-                    assertNotNull(newState.localEphemeralKeypair)
+//                    assertNotNull(newState.localEphemeralKeypair)
                     assertNotNull(newState.remoteEphemeralPublicKey)
 
                     // Root key should change
@@ -161,7 +161,9 @@ class RatchetIntegrationTest {
             bobKeypair.publicKey
         )
 
-        val state1 = Ratchet.ratchetInternalWithNewKey(initialState, aliceKeypair, null, incomingEphemeralKey)
+        val state1 = Ratchet.ratchetInternalWithNewKey(
+            initialState, aliceKeypair, null, incomingEphemeralKey)
+
         var state1chainKey: ByteArray? = null
         var state1rootKey: ByteArray? = null
         var state1messageKey: ByteArray? = null

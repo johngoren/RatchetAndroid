@@ -14,7 +14,7 @@ import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
 import java.nio.ByteBuffer
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -54,18 +54,19 @@ object Ratchet
      * @return The initial ratchet state
      */
     fun initRatchetState(
-        localLongtermKeypair: SecureKeypair,
+        localLongtermKeypair: SecureKeyPair,
         remoteLongtermPublicKey: Curve25519PublicKey,
         sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce
     ): SecureRatchetState
     {
         var newRatchetState: SecureRatchetState? = null
 
-        val copyOfLongtermKeypair = localLongtermKeypair.deepCopy()
+        val copyOfLongtermKeypair = localLongtermKeypair.copyOf()
         val copyOfRemoteLongtermPublicKey = remoteLongtermPublicKey.bytes.copyOf()
         val copyOfSessionId = sessionId.copyOf()
         var hkdfOutput: ByteArray? = null
         var sharedSecret: Secret? = null
+        var newState: RatchetState? = null
 
         return try {
             require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID" }
@@ -77,11 +78,11 @@ object Ratchet
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
                     KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
-                    getInfoFieldForInitialRootKey(copyOfSessionId.copyOf())
+                    getInfo(KeyContext.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
                 )
 
                 // Return initial state with defaults for optional fields
-                val newState = RatchetState(
+                newState = RatchetState(
                     localLongtermKeypair = copyOfLongtermKeypair,
                     remoteLongtermPublicKey = Curve25519PublicKey(copyOfRemoteLongtermPublicKey.copyOf()),
                     rootKey = RootKey.fromHKDF(hkdfOutput),
@@ -92,6 +93,7 @@ object Ratchet
             newRatchetState!!
         }
         catch(e: Exception) {
+            newState?.close()
             throw e // TODO: Throw specific handled errors.
         }
         finally {
@@ -116,12 +118,12 @@ object Ratchet
      */
     fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
-        longtermKeypair: SecureKeypair?,
-        localEphemeralKeypair: SecureKeypair?,
+        longtermKeypair: SecureKeyPair?,
+        localEphemeralKeypair: SecureKeyPair?,
         remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
-        var copyOfLocalLongtermKeypair: SecureKeypair? = null
+        var copyOfLocalLongtermKeypair: SecureKeyPair? = null
         var copyOfRemotePublicKey: Curve25519PublicKey? = null
         var copyOfOldRootKey: SecureKey? = null
         var copyOfSessionId: ByteArray? = null
@@ -133,7 +135,7 @@ object Ratchet
         return try {
             oldState.use { oldStatePeek ->
                 oldStatePeek.apply {
-                    copyOfLocalLongtermKeypair = localLongtermKeypair.deepCopy()
+                    copyOfLocalLongtermKeypair = localLongtermKeypair.copyOf()
                     copyOfRemotePublicKey = Curve25519PublicKey(remotePublicKey.bytes.copyOf())
                     copyOfOldRootKey = RootKey(rootKey.bytes)
                     copyOfSessionId = sessionId
@@ -156,7 +158,9 @@ object Ratchet
                 longtermKeypair?.use { longtermKeypairPeek ->
                     localEphemeralPrivateKey = deriveKeyFromLocalLongtermPrivateKey(
                         longtermKeypairPeek.privateKey,
-                        getInfoFieldForBootstrapKey(copyOfSessionId)
+                        getInfo(
+                            KeyContext.RootKey.INFOPREFIX, copyOfSessionId
+                        )
                     )
                 }
             }
@@ -171,7 +175,7 @@ object Ratchet
             hkdfOutput = performHKDFtoGetRootAndChainKeyMaterial(
                 copyOfOldRootKey.bytes,
                 sharedSecret,
-                getInfoFieldForRatchet(copyOfSessionId)
+                getInfo(KeyContext.ChainKey.INFOPREFIX, copyOfSessionId)
             )
             val newRootKey = RootKey.fromHKDF(hkdfOutput)
             val newChainKey = ChainKey.fromHKDF(hkdfOutput)
@@ -274,24 +278,30 @@ object Ratchet
     {
         var result: RatchetSendResult? = null
 
+        val newEphemeralKeypair = generateEphemeralKeypair()
+        var remoteKey: Curve25519PublicKey? = null
+
         return try {
             oldState.use { oldState ->
-                val newSecureKeypair = generateEphemeralKeypair()
-                    val remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
-                    ratchetInternalWithNewKey(
-                        oldState=SecureRatchetState(oldState),
-                        longtermKeypair = null,
-                        localEphemeralKeypair = newSecureKeypair,
-                        remotePublicKey = remoteKey)
-                    .use { newState ->
-                        val newRatchetState = SecureRatchetState(newState)
-                        result = RatchetSendResult(newRatchetState, newSecureKeypair.publicKey)
-                    }
-            }
-            result ?: throw Exception("Null ratchet send result")
+                remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
+                ratchetInternalWithNewKey(
+                    oldState=SecureRatchetState(oldState),
+                    longtermKeypair = null,
+                    localEphemeralKeypair = newEphemeralKeypair.copyOf(),
+                    remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
+                .use { newState ->
+                    val newRatchetState = SecureRatchetState(newState)
+                    result = RatchetSendResult(newRatchetState, newEphemeralKeypair.publicKey)
+                }
+        }
+        result ?: throw Exception("Null ratchet send result")
         }
         catch(e: Exception) {
             throw e             // TODO: Error handling
+        }
+        finally {
+            newEphemeralKeypair.close()
+            remoteKey?.bytes?.fill(0)
         }
     }
 
@@ -305,21 +315,25 @@ object Ratchet
      */
     fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
+        var localEphemeralKeypair: SecureKeyPair? = null
+        var localLongtermKeypair: SecureKeyPair? = null
 
         return try {
             oldStateSecure.use { oldStatePeek ->
 
-                val ephemeralKeypair = oldStatePeek.localEphemeralKeypair
-                val fallbackToLongtermKeypair = if (ephemeralKeypair != null) {
+                localEphemeralKeypair = oldStatePeek.localEphemeralKeypair
+                localLongtermKeypair = oldStatePeek.localLongtermKeypair
+
+                val fallbackToLongtermKeypair = if (localEphemeralKeypair != null) {
                     null
                 } else {
-                    oldStatePeek.localLongtermKeypair
+                    localLongtermKeypair
                 }
 
                 val resultingRatchetState = ratchetInternalWithNewKey(
                     oldState = oldStateSecure,
                     longtermKeypair = fallbackToLongtermKeypair,
-                    localEphemeralKeypair = ephemeralKeypair,
+                    localEphemeralKeypair = localEphemeralKeypair,
                     remotePublicKey = incomingEphemeralPublicKey,
                 )
 
@@ -331,6 +345,8 @@ object Ratchet
             throw e     // TODO: Error-handling
         }
         finally {
+            localEphemeralKeypair?.close()
+            localLongtermKeypair?.close()
 
         }
     }
@@ -400,6 +416,7 @@ object Ratchet
             return null
         }
         finally {
+            aesKey?.bytes?.fill(0)
             decryptedBytes?.fill(0)
         }
     }
@@ -534,11 +551,13 @@ object Ratchet
      * Secure wrapper for keypair maker
      */
 
-    private fun generateEphemeralKeypair(): SecureKeypair {
-        return SecureKeypair(MADH.generateKeypair())
+    private fun generateEphemeralKeypair(): SecureKeyPair {
+        return SecureKeyPair(MADH.generateKeypair())
     }
 
-    private fun getInfoArray(prefix: String, sessionId: ByteArray): ByteArray {
+    private fun getInfo(prefix: String, sessionId: ByteArray): ByteArray {
+        require(sessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Session nonce was wrong size "}
+
         val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
         return ByteBuffer.allocate((prefixBytes.size + sessionId.size))
             .put(prefixBytes)
@@ -546,25 +565,7 @@ object Ratchet
             .array()
 
     }
-    // Binds initial root key to session
 
-    private fun getInfoFieldForInitialRootKey(sessionId: ByteArray): ByteArray {
-        require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-
-        return getInfoArray(KeyContext.RootKey.INFOPREFIX, sessionId)
-    }
-
-    private fun getInfoFieldForRatchet(sessionId: ByteArray): ByteArray {
-        require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-
-        return getInfoArray(KeyContext.ChainKey.INFOPREFIX, sessionId)
-    }
-
-    private fun getInfoFieldForBootstrapKey(sessionId: ByteArray): ByteArray {
-        require(sessionId.size == 16) { "Invalid number of bytes in session ID" }
-
-        return getInfoArray(KeyContext.EphemeralKey.INFOPREFIX, sessionId)
-    }
 
 }
 

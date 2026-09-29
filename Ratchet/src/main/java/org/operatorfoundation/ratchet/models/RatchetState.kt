@@ -7,7 +7,7 @@ import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.SharedKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
+import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
 
 // TODO: Does this need Autocloseable if it's passed around in a secure autocloseable container class?
 
@@ -22,34 +22,34 @@ import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeypair
  * @property remoteEphemeralPublicKey The remote party's ephemeral public key
  */
 class RatchetState(
-    val localLongtermKeypair: SecureKeypair,
+    val localLongtermKeypair: SecureKeyPair,
     val remoteLongtermPublicKey: Curve25519PublicKey,
     val rootKey: RootKey,
     val messageNumber: Int = 0,
     val chainKey: ChainKey? = null,
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
-    val localEphemeralKeypair: SecureKeypair? = null,
+    val localEphemeralKeypair: SecureKeyPair? = null,
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null,
     val sessionId: ByteArray = ByteArray(16),
     val monotonicCounter: Int = 0
 ) {
 
     fun deepCopy(
-        localLongtermKeypair: SecureKeypair = this.localLongtermKeypair,
+        localLongtermKeypair: SecureKeyPair = this.localLongtermKeypair,
         remoteLongtermPublicKey: Curve25519PublicKey = this.remoteLongtermPublicKey,
         rootKey: RootKey = this.rootKey,
         messageNumber: Int = this.messageNumber,
         chainKey: ChainKey? = this.chainKey,
         sharedKey: SharedKey? = this.sharedKey,
         messageKey: MessageKey? = this.messageKey,
-        localEphemeralKeypair: SecureKeypair? = this.localEphemeralKeypair,
+        localEphemeralKeypair: SecureKeyPair? = this.localEphemeralKeypair,
         remoteEphemeralPublicKey: Curve25519PublicKey? = this.remoteEphemeralPublicKey): RatchetState
     {
-        var copyOfLocalLongtermKeypair: SecureKeypair? = null
+        var copyOfLocalLongtermKeypair: SecureKeyPair? = null
 
         localLongtermKeypair.use { localLongtermKeypair ->
-            val tempCopyOfLocalLongtermKeypair = SecureKeypair(
+            val tempCopyOfLocalLongtermKeypair = SecureKeyPair(
                 Curve25519KeyPair(
                     Curve25519PublicKey(localLongtermKeypair.publicKey.bytes.copyOf()),
                     Curve25519PrivateKey(localLongtermKeypair.privateKey.bytes.copyOf())
@@ -64,14 +64,14 @@ class RatchetState(
         val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes.copyOf()) } else { null }
         val copyOfMessageKey = if (messageKey != null) { MessageKey(messageKey.bytes.copyOf()) } else { null }
 
-        var copyOfLocalEphemeralKeypair: SecureKeypair? = null
+        var copyOfLocalEphemeralKeypair: SecureKeyPair? = null
 
         localEphemeralKeypair?.use { localKeypair ->
             val tempCopyOfLocalEphemeralKeypair = Curve25519KeyPair(
                 Curve25519PublicKey(localKeypair.publicKey.bytes.copyOf()),
                 Curve25519PrivateKey(localKeypair.privateKey.bytes.copyOf())
             )
-            copyOfLocalEphemeralKeypair = SecureKeypair(tempCopyOfLocalEphemeralKeypair)
+            copyOfLocalEphemeralKeypair = SecureKeyPair(tempCopyOfLocalEphemeralKeypair)
         }
 
         val copyOfRemoteEphemeralPublicKey = if (remoteEphemeralPublicKey == null) { null } else {
