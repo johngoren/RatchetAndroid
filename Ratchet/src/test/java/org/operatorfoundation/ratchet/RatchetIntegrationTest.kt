@@ -162,7 +162,7 @@ class RatchetIntegrationTest {
         )
 
         val state1 = Ratchet.ratchetInternalWithNewKey(
-            initialState, aliceKeypair, null, incomingEphemeralKey)
+            initialState, aliceKeypair, incomingEphemeralKey)
 
         var state1chainKey: ByteArray? = null
         var state1rootKey: ByteArray? = null

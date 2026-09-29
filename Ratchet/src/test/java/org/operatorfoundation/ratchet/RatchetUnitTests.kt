@@ -352,7 +352,6 @@ class RatchetUnitTests {
             val secureState1 = Ratchet.ratchetInternalWithNewKey(
                 secureInitialState,
                 aliceKeypair,
-                null,
                 bobEphemeralKeypair.publicKey,
             )
 

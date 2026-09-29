@@ -2,11 +2,8 @@ package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.aes.AesGcmKey
 import org.operatorfoundation.aes.Ciphertext
-import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
-import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
-import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_SESSION_NONCE
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
@@ -115,13 +112,18 @@ object Ratchet
      * Advances the ratchet _with_ new ephemeral keys (DH ratchet step).
      * This should be called when receiving a message with a new public key.
      *
+     * The local ephemeral keypair is either a newly-generated ephemeral keypair
+     * or (when the receiver has not yet sent a message) a key derived from her
+     * longterm private key.
+     *
      * @param oldState The current ratchet state
+     * @param ephemeralKeypair Optional ECDH keys, not present at beginning of Bob's chat
      * @param remotePublicKey New remote ephemeral public key
      * @return The updated ratchet state
      */
     fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
-        localEphemeralKeypair: SecureKeyPair?,
+        ephemeralKeypair: SecureKeyPair?,
         remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
@@ -153,11 +155,14 @@ object Ratchet
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
 
-            if (localEphemeralKeypair != null) {
-                localEphemeralKeypair.use { localEphemeralKeypairPeek ->
-                    localKeyForECDH = PrivateKey(localEphemeralKeypairPeek.privateKey.bytes.copyOf())
+            // Agnostic to whether it is a true ephemeral key or a fallback key
+            if (ephemeralKeypair != null) {
+                ephemeralKeypair.use { localEphemeralKeypairPeek ->
+                    localKeyForECDH =
+                        PrivateKey(localEphemeralKeypairPeek.privateKey.bytes.copyOf())
                 }
-            } else {
+            }
+            else {
                 copyOfLocalLongtermKeypair.use { copyOfLocalLongtermKeypairPeek ->
                     copyOfLocalLongtermPrivateKey =
                         SecureKey(copyOfLocalLongtermKeypairPeek.privateKey.bytes.copyOf())
@@ -169,7 +174,6 @@ object Ratchet
                             )
                         )
                     }
-
                 }
             }
 
@@ -203,7 +207,7 @@ object Ratchet
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
-                localEphemeralKeypair = localEphemeralKeypair,
+                localEphemeralKeypair = ephemeralKeypair,
                 remoteEphemeralPublicKey = remotePublicKey
             )
             SecureRatchetState(newState)
@@ -295,7 +299,7 @@ object Ratchet
                 remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
                 ratchetInternalWithNewKey(
                     oldState=SecureRatchetState(oldState),
-                    localEphemeralKeypair = newEphemeralKeypair.copyOf(),
+                    ephemeralKeypair = newEphemeralKeypair.copyOf(),
                     remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
                 .use { newState ->
                     val newRatchetState = SecureRatchetState(newState)
@@ -324,23 +328,15 @@ object Ratchet
     fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
         var localEphemeralKeypair: SecureKeyPair? = null
-        var localLongtermKeypair: SecureKeyPair? = null
 
         return try {
             oldStateSecure.use { oldStatePeek ->
 
                 localEphemeralKeypair = oldStatePeek.localEphemeralKeypair
-                localLongtermKeypair = oldStatePeek.localLongtermKeypair
-
-                val fallbackToLongtermKeypair = if (localEphemeralKeypair != null) {
-                    null
-                } else {
-                    localLongtermKeypair
-                }
 
                 val resultingRatchetState = ratchetInternalWithNewKey(
                     oldState = oldStateSecure,
-                    localEphemeralKeypair = localEphemeralKeypair,
+                    ephemeralKeypair = localEphemeralKeypair,
                     remotePublicKey = incomingEphemeralPublicKey,
                 )
 
@@ -353,8 +349,6 @@ object Ratchet
         }
         finally {
             localEphemeralKeypair?.close()
-            localLongtermKeypair?.close()
-
         }
     }
 
