@@ -5,6 +5,8 @@ import org.operatorfoundation.aes.Ciphertext
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
+import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_SESSION_NONCE
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
@@ -12,6 +14,7 @@ import org.operatorfoundation.ratchet.models.keys.SharedKey
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
+import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
@@ -71,10 +74,10 @@ object Ratchet
         return try {
             require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID" }
 
-            copyOfLongtermKeypair.use { localKeypair ->
+            copyOfLongtermKeypair.use { localKeypairPeek ->
 
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
-                sharedSecret = ecdh(localKeypair.privateKey, remoteLongtermPublicKey)
+                sharedSecret = ecdh(PrivateKey(localKeypairPeek.privateKey.bytes), remoteLongtermPublicKey)
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
                     KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
@@ -118,12 +121,12 @@ object Ratchet
      */
     fun ratchetInternalWithNewKey(
         oldState: SecureRatchetState,
-        longtermKeypair: SecureKeyPair?,
         localEphemeralKeypair: SecureKeyPair?,
         remotePublicKey: Curve25519PublicKey        // Incoming ephemeral PK
     ): SecureRatchetState
     {
         var copyOfLocalLongtermKeypair: SecureKeyPair? = null
+        var copyOfLocalLongtermPrivateKey: SecureKey? = null
         var copyOfRemotePublicKey: Curve25519PublicKey? = null
         var copyOfOldRootKey: SecureKey? = null
         var copyOfSessionId: ByteArray? = null
@@ -131,6 +134,7 @@ object Ratchet
         var sharedSecret: Secret? = null
         var hkdfOutput: ByteArray? = null
         var hmacOutput: ByteArray? = null
+        var localKeyForECDH: PrivateKey? = null
 
         return try {
             oldState.use { oldStatePeek ->
@@ -149,26 +153,31 @@ object Ratchet
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
 
-            var localEphemeralPrivateKey: Curve25519PrivateKey? = null
             if (localEphemeralKeypair != null) {
                 localEphemeralKeypair.use { localEphemeralKeypairPeek ->
-                    localEphemeralPrivateKey = Curve25519PrivateKey(localEphemeralKeypairPeek.privateKey.bytes.copyOf())
+                    localKeyForECDH = PrivateKey(localEphemeralKeypairPeek.privateKey.bytes.copyOf())
                 }
             } else {
-                longtermKeypair?.use { longtermKeypairPeek ->
-                    localEphemeralPrivateKey = deriveKeyFromLocalLongtermPrivateKey(
-                        longtermKeypairPeek.privateKey,
-                        getInfo(
-                            KeyContext.RootKey.INFOPREFIX, copyOfSessionId
+                copyOfLocalLongtermKeypair.use { copyOfLocalLongtermKeypairPeek ->
+                    copyOfLocalLongtermPrivateKey =
+                        SecureKey(copyOfLocalLongtermKeypairPeek.privateKey.bytes.copyOf())
+                    copyOfLocalLongtermPrivateKey.use { privateKey ->
+                        localKeyForECDH = deriveKeyFromLocalLongtermPrivateKey(
+                            PrivateKey(privateKey),
+                            getInfo(
+                                KeyContext.RootKey.INFOPREFIX, copyOfSessionId
+                            )
                         )
-                    )
+                    }
+
                 }
             }
 
-            require(localEphemeralPrivateKey != null) { "Could not find material for local ephemeral keypair " }
+            require(localKeyForECDH != null) { "Could not find material for local ephemeral keypair " }
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-            sharedSecret = ecdh(localEphemeralPrivateKey, remotePublicKey)
+            sharedSecret = ecdh(localKeyForECDH, remotePublicKey)
+
             val newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
@@ -194,7 +203,7 @@ object Ratchet
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
-                localEphemeralKeypair = longtermKeypair,    // TODO: Incorrect?
+                localEphemeralKeypair = localEphemeralKeypair,
                 remoteEphemeralPublicKey = remotePublicKey
             )
             SecureRatchetState(newState)
@@ -286,7 +295,6 @@ object Ratchet
                 remoteKey = oldState.remoteEphemeralPublicKey ?: oldState.remoteLongtermPublicKey
                 ratchetInternalWithNewKey(
                     oldState=SecureRatchetState(oldState),
-                    longtermKeypair = null,
                     localEphemeralKeypair = newEphemeralKeypair.copyOf(),
                     remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
                 .use { newState ->
@@ -332,7 +340,6 @@ object Ratchet
 
                 val resultingRatchetState = ratchetInternalWithNewKey(
                     oldState = oldStateSecure,
-                    longtermKeypair = fallbackToLongtermKeypair,
                     localEphemeralKeypair = localEphemeralKeypair,
                     remotePublicKey = incomingEphemeralPublicKey,
                 )
@@ -431,22 +438,26 @@ object Ratchet
      *
      * TODO: Per report, must also handle error state
      */
-    private fun ecdh(privateKey: Curve25519PrivateKey, publicKey: Curve25519PublicKey): Secret
+    private fun ecdh(privateKey: PrivateKey, publicKey: Curve25519PublicKey): Secret
     {
-        val privateKeyBytes = privateKey.bytes.copyOf()
+        var copyOfPrivateKeyBytes: ByteArray? = null
         val publicKeyBytes = publicKey.bytes.copyOf()
+
+        privateKey.use { privateKeyPeek ->
+            copyOfPrivateKeyBytes = privateKeyPeek.copyOf()
+        }
 
         return try {
             // BouncyCastle X25519 key agreement
 
             // Ensure we have the correct key sizes
-            require(privateKeyBytes.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
+            require(copyOfPrivateKeyBytes?.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
             require(publicKeyBytes.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
 
             // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
             val sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
             val successfulKeyAgreement = org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
-                privateKeyBytes,
+                copyOfPrivateKeyBytes,
                 0,
                 publicKeyBytes,
                 0,
@@ -468,7 +479,7 @@ object Ratchet
         }
         finally {
             publicKeyBytes.fill(0)
-            privateKeyBytes.fill(0)
+            copyOfPrivateKeyBytes?.fill(0)
         }
     }
 
@@ -519,19 +530,30 @@ object Ratchet
      * derived from the longterm private key.
      */
 
-    private fun deriveKeyFromLocalLongtermPrivateKey(longtermPrivateKey: Curve25519PrivateKey, info: ByteArray): Curve25519PrivateKey {
-        require(longtermPrivateKey.bytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key"}
-
+    private fun deriveKeyFromLocalLongtermPrivateKey(securePrivateKey: PrivateKey, info: ByteArray): PrivateKey {
         var newOutput: ByteArray? = null
-        val salt = KeyContext.EphemeralKey.SALT.toByteArray(Charsets.UTF_8)
-        val prk = performHMAC(salt, longtermPrivateKey.bytes)
+        var copyOfPrivateKeyBytes: ByteArray? = null
 
-        // HKDF-Expand: Generate 32 bytes
+        return try {
+            securePrivateKey.use { privateKey ->
+                copyOfPrivateKeyBytes = privateKey.copyOf()
 
-        val infoBytes = info
-        newOutput = performHMAC(prk, infoBytes + byteArrayOf(0x01)) // TODO: Why are we adding this
-        val newKey = Curve25519PrivateKey(newOutput )
-        return newKey
+                require(copyOfPrivateKeyBytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key" }
+
+                val salt = KeyContext.EphemeralKey.SALT.toByteArray(Charsets.UTF_8)
+                val prk = performHMAC(salt, copyOfPrivateKeyBytes)
+                newOutput = performHMAC(prk, info + byteArrayOf(0x01)) // TODO: Why are we adding this
+            }
+            require(newOutput != null) { "HMAC output was null" }
+            PrivateKey(newOutput.copyOf())
+        }
+        catch(e: Exception) {
+            throw e
+        }
+        finally {
+            copyOfPrivateKeyBytes?.fill(0)
+            newOutput?.fill(0)
+        }
     }
 
 
