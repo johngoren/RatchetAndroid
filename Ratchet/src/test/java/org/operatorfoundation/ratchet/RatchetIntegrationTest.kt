@@ -7,6 +7,7 @@ import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.TestUtils.mockKeypair
+import org.operatorfoundation.ratchet.models.keys.MessageKey
 
 
 class RatchetIntegrationTest {
@@ -477,6 +478,8 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockKeypair()
         val bobKeypair = mockKeypair()
 
+        var state1messageKey: MessageKey
+
         bobKeypair.use { bobKeypair ->
 
             val secureInitialState = Ratchet.initRatchetState(
@@ -489,6 +492,8 @@ class RatchetIntegrationTest {
 
             state1.use { state1Peek ->
 
+                state1messageKey = MessageKey(state1Peek.messageKey?.bytes!!)
+
                 Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
                     val message = PlaintextMessage(
                         PlaintextMessageType.DATA,
@@ -496,7 +501,7 @@ class RatchetIntegrationTest {
                     )
 
                     // Encrypt with state1's key
-                    val ciphertext = Ratchet.encrypt(state1Peek.messageKey!!, message)
+                    val ciphertext = Ratchet.encrypt(state1messageKey, message)
 
                     // Try to decrypt with state2's key (should fail)
                     try {
