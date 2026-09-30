@@ -303,7 +303,7 @@ object Ratchet
                     ephemeralKeypair = newEphemeralKeypair.copyOf(),
                     remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
                 .use { newState ->
-                    // TODO: Make immutable
+                    // TODO: Make this happen in RatchetInternal, based on some flag
                     val newCounter = oldState.monotonicCounterOutgoing + 1
                     newState.monotonicCounterOutgoing = newCounter
 
@@ -334,12 +334,22 @@ object Ratchet
      * @param incomingEphemeralPublicKey The ephemeral public key received from the sender
      * @return The updated ratchet state
      */
-    fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey): SecureRatchetState {
+    fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey, incomingCounter: Int? = null): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
         var localEphemeralKeypair: SecureKeyPair? = null
 
+
         return try {
             oldStateSecure.use { oldStatePeek ->
+
+                // TODO: Support counter overflow
+
+                incomingCounter?.also {
+                    if (it <= oldStatePeek.monotonicCounterIncoming) {
+                        throw SecurityException("ECDH public key was not guaranteed to be new; counter value was too low")
+                    }
+                }
+
 
                 localEphemeralKeypair = oldStatePeek.localEphemeralKeypair
 
