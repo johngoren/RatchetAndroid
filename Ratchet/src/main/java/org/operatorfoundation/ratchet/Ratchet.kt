@@ -29,7 +29,6 @@ import javax.crypto.spec.SecretKeySpec
  *
  */
 
-
 object Ratchet
 {
     const val NUM_BYTES_IN_KEY = 32
@@ -37,7 +36,8 @@ object Ratchet
 
     class RatchetSendResult(
         val state: SecureRatchetState,
-        val outgoingEphemeralPublicKey: Curve25519PublicKey
+        val outgoingEphemeralPublicKey: Curve25519PublicKey,
+        val outgoingCounter: Int
     )
 
     // ========== Creating a new ratchet state ==========
@@ -76,7 +76,6 @@ object Ratchet
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
                 sharedSecret = ecdh(PrivateKey(localKeypairPeek.privateKey.bytes), remoteLongtermPublicKey)
                 hkdfOutput = performHKDFtoDeriveRootKeyMaterial(
-                    KeyContext.RootKey.SALT.toByteArray(Charsets.UTF_8),
                     sharedSecret,
                     getInfo(KeyContext.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
                 )
@@ -94,7 +93,8 @@ object Ratchet
         }
         catch(e: Exception) {
             newState?.close()
-            throw e // TODO: Throw specific handled errors.
+            invalidateAllState(localLongtermKeypair, remoteLongtermPublicKey)
+            error(ERROR_MESSAGE_NEW_HANDSHAKE_REQUIRED)
         }
         finally {
             copyOfLongtermKeypair.close()
@@ -292,6 +292,7 @@ object Ratchet
         var result: RatchetSendResult? = null
 
         val newEphemeralKeypair = generateEphemeralKeypair()
+
         var remoteKey: Curve25519PublicKey? = null
 
         return try {
@@ -302,8 +303,16 @@ object Ratchet
                     ephemeralKeypair = newEphemeralKeypair.copyOf(),
                     remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
                 .use { newState ->
+                    // TODO: Make immutable
+                    val newCounter = oldState.monotonicCounterOutgoing + 1
+                    newState.monotonicCounterOutgoing = newCounter
+
                     val newRatchetState = SecureRatchetState(newState)
-                    result = RatchetSendResult(newRatchetState, newEphemeralKeypair.publicKey)
+                    result = RatchetSendResult(
+                        newRatchetState,
+                        newEphemeralKeypair.publicKey,
+                        newCounter
+                    )
                 }
         }
         result ?: throw Exception("Null ratchet send result")
@@ -500,23 +509,26 @@ object Ratchet
         return result ?: throw Exception("Something went wrong")
     }
 
-    private fun performHKDFtoDeriveRootKeyMaterial(salt: ByteArray? = null, sharedSecret: Secret, info: ByteArray): ByteArray {
+    private fun performHKDFtoDeriveRootKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
         val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
 
         // TODO: Enforce proper secret size inside sharedSecret.
 
-        sharedSecret.use { sharedKey ->
-            // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)
-            val prk = performHMAC(salt, sharedKey)
+        return try {
+            sharedSecret.use { sharedKey ->
+                // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)
+                val prk = performHMAC(salt, sharedKey)
 
-            // HKDF-Expand: Generate 32-bytes
+                // HKDF-Expand: Generate 32-bytes
 
-            val t1 = performHMAC(prk, info + byteArrayOf(0x01))
-            newOutput = t1
+                newOutput = performHMAC(prk, info + byteArrayOf(0x01))
+            }
+            newOutput ?: throw Exception("Something went wrong")
         }
-
-        return newOutput ?: throw Exception("Something went wrong")
+        catch(e: Exception) {
+            throw e
+        }
     }
 
     /**
@@ -536,7 +548,7 @@ object Ratchet
 
                 val salt = KeyContext.EphemeralKey.SALT.toByteArray(Charsets.UTF_8)
                 val prk = performHMAC(salt, copyOfPrivateKeyBytes)
-                newOutput = performHMAC(prk, info + byteArrayOf(0x01)) // TODO: Why are we adding this
+                newOutput = performHMAC(prk, info + byteArrayOf(0x01))
             }
             require(newOutput != null) { "HMAC output was null" }
             PrivateKey(newOutput.copyOf())
@@ -557,10 +569,24 @@ object Ratchet
 
     private fun performHMAC(key: ByteArray, data: ByteArray): ByteArray
     {
-        val mac = Mac.getInstance(HMAC_ALGORITHM)
-        val secretKey = SecretKeySpec(key, HMAC_ALGORITHM)
-        mac.init(secretKey)
-        return mac.doFinal(data)
+        val copyOfKeyBytes = key.copyOf()
+        val copyOfDataBytes = data.copyOf()
+        var secretKey: SecretKeySpec? = null
+
+        return try {
+            val mac = Mac.getInstance(HMAC_ALGORITHM)
+            secretKey = SecretKeySpec(copyOfKeyBytes, HMAC_ALGORITHM)
+            mac.init(secretKey)
+            mac.doFinal(copyOfDataBytes)
+        }
+        catch(e: Exception) {
+            throw e
+        }
+        finally {
+            copyOfKeyBytes.fill(0)
+            copyOfDataBytes.fill(0)
+            // TODO: And destroy secret key?
+        }
     }
 
     /**
@@ -581,6 +607,13 @@ object Ratchet
             .array()
 
     }
+
+    private fun invalidateAllState(localLongtermKeypair: SecureKeyPair, remotePublicKey: Curve25519PublicKey) {
+        localLongtermKeypair.close()
+        remotePublicKey.bytes.fill(0)
+    }
+
+    const val ERROR_MESSAGE_NEW_HANDSHAKE_REQUIRED = "Ratchet error. New handshake required."
 
 
 }

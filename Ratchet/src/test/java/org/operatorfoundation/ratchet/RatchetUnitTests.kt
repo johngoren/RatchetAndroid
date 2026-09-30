@@ -2,15 +2,12 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Test
 import org.junit.Assert.*
-import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.TestUtils.mockKeypair
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.MessageKey
-import org.operatorfoundation.ratchet.models.keys.RootKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
 import kotlin.test.assertFailsWith
 
 
@@ -340,7 +337,7 @@ class RatchetUnitTests {
         var state1rootKey: ByteArray? = null
         var state1messageKey: ByteArray? = null
         var state1sharedKey: ByteArray? = null
-        var state1localPrivatekey: ByteArray? = null
+        var state1localPrivateKey: ByteArray? = null
         var state1localEphemeralPublic: ByteArray? = null
         var state1remoteEphemeralPublic: ByteArray? = null
 
@@ -365,7 +362,7 @@ class RatchetUnitTests {
                 state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytes?.copyOf()
 
                 state1.localLongtermKeypair.use { state1LocalLongtermKeypair ->
-                    state1localPrivatekey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
+                    state1localPrivateKey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
                 }
 
                 // Advance without new keys
@@ -390,7 +387,7 @@ class RatchetUnitTests {
 
                     state2.localLongtermKeypair.use { state2Keypair ->
                         assertArrayEquals(
-                            state1localPrivatekey,
+                            state1localPrivateKey,
                             state2Keypair.privateKey.bytes
                         )
 
@@ -727,7 +724,7 @@ class RatchetUnitTests {
         var state1RootKey: ByteArray? = null
         var state1ChainKey: ByteArray? = null
         var state1SharedKey: ByteArray? = null
-        var state1Messagekey: ByteArray? = null
+        var state1MessageKey: ByteArray? = null
         var state1RemoteEphemeralPublicKey: ByteArray? = null
 
         var state2RootKey: ByteArray? = null
@@ -752,7 +749,7 @@ class RatchetUnitTests {
                             state1RootKey = state1peek.rootKey.bytes
                             state1ChainKey = state1peek.chainKey?.bytes
                             state1SharedKey = state1peek.sharedKey?.bytes
-                            state1Messagekey = state1peek.messageKey?.bytes
+                            state1MessageKey = state1peek.messageKey?.bytes
                             state1RemoteEphemeralPublicKey = state1peek.remoteEphemeralPublicKey?.bytes
 
                             Ratchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
@@ -767,7 +764,7 @@ class RatchetUnitTests {
                                         )
                                     )
                                     assertFalse(
-                                        state1Messagekey!!.contentEquals(
+                                        state1MessageKey!!.contentEquals(
                                             state2.messageKey!!.bytes
                                         )
                                     )
@@ -809,6 +806,5 @@ class RatchetUnitTests {
 
     // ========== Zeroization tests ==========
 
-    // TODO
 
 }

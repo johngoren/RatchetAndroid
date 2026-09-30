@@ -32,7 +32,8 @@ class RatchetState(
     val localEphemeralKeypair: SecureKeyPair? = null,
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null,
     val sessionId: ByteArray = ByteArray(16),
-    val monotonicCounter: Int = 0
+    var monotonicCounterIncoming: Int = 0,
+    var monotonicCounterOutgoing: Int = 0
 ) {
 
     fun deepCopy(
