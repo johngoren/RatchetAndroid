@@ -10,6 +10,8 @@ import org.operatorfoundation.ratchet.TestUtils.mockKeypair
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 
 
+// TODO: Test that local ephemeral keypair is changing at all!
+
 class RatchetIntegrationTest {
     @Test
     fun `newRatchetState creates valid initial state`() {
@@ -108,7 +110,6 @@ class RatchetIntegrationTest {
         }
     }
 
-    // TODO: Test that local ephemeral keypair is changing at all!
 
     @Test
     fun `ratchetForReceive performs DH ratchet step`() {

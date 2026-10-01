@@ -37,7 +37,7 @@ object Ratchet
     class RatchetSendResult(
         val state: SecureRatchetState,
         val outgoingEphemeralPublicKey: Curve25519PublicKey,
-        val outgoingCounter: Int
+        val outgoingCounter: Int?
     )
 
     // ========== Creating a new ratchet state ==========
@@ -303,7 +303,6 @@ object Ratchet
                     ephemeralKeypair = newEphemeralKeypair.copyOf(),
                     remotePublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
                 .use { newState ->
-                    // TODO: Make this happen in RatchetInternal, based on some flag
                     val newCounter = oldState.monotonicCounterOutgoing + 1
                     newState.monotonicCounterOutgoing = newCounter
 
@@ -314,11 +313,11 @@ object Ratchet
                         newCounter
                     )
                 }
-        }
+            }
         result ?: throw Exception("Null ratchet send result")
         }
         catch(e: Exception) {
-            throw e             // TODO: Error handling
+            throw e             // TODO: Granular error handling
         }
         finally {
             newEphemeralKeypair.close()
@@ -332,24 +331,23 @@ object Ratchet
      *
      * @param oldState The current ratchet state
      * @param incomingEphemeralPublicKey The ephemeral public key received from the sender
+     * @param incomingCounter The message counter number that was received from the sender
      * @return The updated ratchet state
      */
     fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey, incomingCounter: Int? = null): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
         var localEphemeralKeypair: SecureKeyPair? = null
 
-
         return try {
             oldStateSecure.use { oldStatePeek ->
 
-                // TODO: Support counter overflow
+                // TODO: Support counter overflow.
 
                 incomingCounter?.also {
                     if (it <= oldStatePeek.monotonicCounterIncoming) {
                         throw SecurityException("ECDH public key was not guaranteed to be new; counter value was too low")
                     }
                 }
-
 
                 localEphemeralKeypair = oldStatePeek.localEphemeralKeypair
 
