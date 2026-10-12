@@ -143,8 +143,8 @@ object Ratchet
         var hmacOutput: ByteArray? = null
 
         return try {
-
             localEphemeralKeypair?.use { localECDHEPeek ->
+                require(localECDHEPeek.privateKey.bytes.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
                 copyOfLocalEphemeralPrivateKey = localECDHEPeek.privateKey.bytes.copyOf()
             }
 
@@ -638,9 +638,8 @@ object KeyContext {
     }
 
     object ChainKey {
-        const val SALT = "SHOUT-v1-Salt-ChainKey" // TODO: Not needed because the salt IS the previous chain, right?
         const val INFOPREFIX = "SHOUT-CHAIN"
     }
-        
+
 
 }
