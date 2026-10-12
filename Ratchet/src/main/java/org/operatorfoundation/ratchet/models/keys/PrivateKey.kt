@@ -4,11 +4,14 @@ import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
 
 
 /**
- * Represents the root key in the double ratchet algorithm.
- * The root key is used to derive chain keys.
+ * Private key
+ *
+ * Can represent the root key in the double ratchet algorithm, used to derive chain keys, as well as the
+ * ECDHE private key for the internal rotation.
+ *
  */
 class PrivateKey(bytes: ByteArray): SecureKey(bytes.copyOf())
 {
 
-
 }
+

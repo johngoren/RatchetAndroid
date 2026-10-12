@@ -8,7 +8,7 @@ class SecureRatchetState(newRatchetState: RatchetState): AutoCloseable {
     private val _ratchetState: RatchetState
 
     init {
-        _ratchetState = newRatchetState.deepCopy()
+        _ratchetState = newRatchetState.copy()
     }
 
     fun use(block: (RatchetState) -> Unit) {

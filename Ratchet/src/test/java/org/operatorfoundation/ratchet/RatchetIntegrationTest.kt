@@ -162,7 +162,7 @@ class RatchetIntegrationTest {
             bobKeypair.publicKey
         )
 
-        val state1 = Ratchet.ratchetInternalWithNewKey(
+        val state1 = Ratchet.ratchetInternalWithNewEntropy(
             initialState, aliceKeypair, incomingEphemeralKey)
 
         var state1chainKey: ByteArray? = null
@@ -185,7 +185,7 @@ class RatchetIntegrationTest {
             }
             state1remoteEphemeralPublicKey = state1Peek.remoteEphemeralPublicKey?.bytes?.copyOf()
 
-            Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
+            Ratchet.symmetricRatchet(state1).use { state2 ->
                 // Chain and message keys should change (symmetric ratchet)
                 assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytes))
                 assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytes))
@@ -283,7 +283,7 @@ class RatchetIntegrationTest {
                         assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
                         // Advance ratchet for next message
-                        Ratchet.symmetricRatchetWithoutIncomingKey(currentState).use { newState ->
+                        Ratchet.symmetricRatchet(currentState).use { newState ->
                             currentState = SecureRatchetState(newState)
                         }
                     }
@@ -319,7 +319,7 @@ class RatchetIntegrationTest {
                 val decrypted1 = Ratchet.decrypt(aliceState.messageKey!!, ciphertext1)
                 assertArrayEquals(message1.bytes, decrypted1!!.bytes)
 
-                Ratchet.symmetricRatchetWithoutIncomingKey(result.state).use { newState ->
+                Ratchet.symmetricRatchet(result.state).use { newState ->
 
                     val message2 = PlaintextMessage(
                         PlaintextMessageType.UNCOMPRESSED_TEXT,
@@ -392,7 +392,7 @@ class RatchetIntegrationTest {
                 val ciphertext1 = Ratchet.encrypt(statePeek.messageKey!!, message)
 
                 // Advance ratchet to get new message key
-                Ratchet.symmetricRatchetWithoutIncomingKey(result.state).use { newState ->
+                Ratchet.symmetricRatchet(result.state).use { newState ->
                     val ciphertext2 = Ratchet.encrypt(newState.messageKey!!, message)
 
                     // Same plaintext with different keys should produce different ciphertexts
@@ -466,9 +466,9 @@ class RatchetIntegrationTest {
 
                     // Symmetric ratchets increment by 1 each
                     for (i in 2..10) {
-                        Ratchet.symmetricRatchetWithoutIncomingKey(currentState).use { newState ->
+                        Ratchet.symmetricRatchet(currentState).use { newState ->
                             assertEquals(i, newState.messageNumber)
-                            currentState = SecureRatchetState(newState.deepCopy())
+                            currentState = SecureRatchetState(newState.copy())
                         }
                     }
                 }
@@ -497,7 +497,7 @@ class RatchetIntegrationTest {
 
                 state1messageKey = MessageKey(state1Peek.messageKey?.bytes!!)
 
-                Ratchet.symmetricRatchetWithoutIncomingKey(state1).use { state2 ->
+                Ratchet.symmetricRatchet(state1).use { state2 ->
                     val message = PlaintextMessage(
                         PlaintextMessageType.DATA,
                         "Secret".toByteArray()
