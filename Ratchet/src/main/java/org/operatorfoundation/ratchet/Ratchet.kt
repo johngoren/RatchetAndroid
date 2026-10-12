@@ -532,7 +532,6 @@ object Ratchet
                 val prk = performHMAC(salt, sharedKey)
 
                 // HKDF-Expand: Generate 32-bytes
-
                 newOutput = performHMAC(prk, info + byteArrayOf(0x01))
             }
             newOutput ?: throw Exception("Something went wrong")
@@ -541,41 +540,6 @@ object Ratchet
             throw e
         }
     }
-
-    /**
-     * Before any user has sent a message, no ECDH has happened yet, so we fall back to a key
-     * derived from the longterm private key.
-     */
-
-    private fun deriveEphemeralKeypairFromLongterm(keyPair: SecureKeyPair, info: ByteArray): SecureKeyPair {
-        TODO("Do this properly")
-        var newOutput: ByteArray? = null
-        var copyOfPrivateKeyBytes: ByteArray? = null
-
-        TODO("Fix this on Tuesday!")
-
-//        return try {
-//            securePrivateKey.use { privateKey ->
-//                copyOfPrivateKeyBytes = privateKey.copyOf()
-//
-//                require(copyOfPrivateKeyBytes.size == NUM_BYTES_IN_KEY) { "Invalid number of bytes in key" }
-//
-//                val salt = KeyContext.EphemeralKey.SALT.toByteArray(Charsets.UTF_8)
-//                val prk = performHMAC(salt, copyOfPrivateKeyBytes)
-//                newOutput = performHMAC(prk, info + byteArrayOf(0x01))
-//            }
-//            require(newOutput != null) { "HMAC output was null" }
-//            PrivateKey(newOutput.copyOf())
-//        }
-//        catch(e: Exception) {
-//            throw e
-//        }
-//        finally {
-//            copyOfPrivateKeyBytes?.fill(0)
-//            newOutput?.fill(0)
-//        }
-        }
-
 
     /**
      * HMAC-SHA256 function
@@ -677,10 +641,6 @@ object KeyContext {
         const val SALT = "SHOUT-v1-Salt-ChainKey" // TODO: Not needed because the salt IS the previous chain, right?
         const val INFOPREFIX = "SHOUT-CHAIN"
     }
-
-    object EphemeralKey {
-        const val SALT = "SHOUT-v1-Salt-Ephemeral"
-        const val INFOPREFIX = "SHOUT-EPHEMERAL"
-    }
+        
 
 }
