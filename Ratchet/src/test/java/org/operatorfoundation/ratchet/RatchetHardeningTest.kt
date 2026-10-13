@@ -16,18 +16,18 @@ class RatchetHardeningTest {
         var firstBobEphemeralPublicKey: Curve25519PublicKey? = null
         var reusedBobPublicKey: Curve25519PublicKey? = null
 
-        val initialStateAlice = Ratchet.initRatchetState(
+        val initialStateAlice = DoubleRatchet.initRatchetState(
             aliceKeypair,
             bobKeypair.publicKey
         )
 
-        val initialStateBob = Ratchet.initRatchetState(
+        val initialStateBob = DoubleRatchet.initRatchetState(
             bobKeypair,
             aliceKeypair.publicKey
         )
 
         // Bob ratchets and sends the first message
-        val bobRatchetsResult = Ratchet.ratchetForSend(initialStateBob)
+        val bobRatchetsResult = DoubleRatchet.ratchetForSend(initialStateBob)
         val bobState1 = bobRatchetsResult.state
         firstBobEphemeralPublicKey = bobRatchetsResult.outgoingEphemeralPublicKey
 
@@ -36,39 +36,39 @@ class RatchetHardeningTest {
         bobState1.use { statePeek ->
             messageKeyBob1 = statePeek.messageKey
         }
-        val ciphertext1 = Ratchet.encrypt(messageKeyBob1!!, originalMessage)
+        val ciphertext1 = DoubleRatchet.encrypt(messageKeyBob1!!, originalMessage)
 
         // This ciphertext is then sent over to the wire. Alice receives and decrypts it OK. So far so good
 
-        val aliceState1 = Ratchet.ratchetForReceive(initialStateAlice, firstBobEphemeralPublicKey)
+        val aliceState1 = DoubleRatchet.ratchetForReceive(initialStateAlice, firstBobEphemeralPublicKey)
         var messageKeyAlice1: MessageKey? = null
         aliceState1.use { alice1StatePeek ->
             messageKeyAlice1 = alice1StatePeek.messageKey
         }
 
-        val aliceSuccessfullyDecrypts = Ratchet.decrypt(messageKeyAlice1!!, ciphertext1)
+        val aliceSuccessfullyDecrypts = DoubleRatchet.decrypt(messageKeyAlice1!!, ciphertext1)
         assertArrayEquals(originalMessage.bytes, aliceSuccessfullyDecrypts!!.bytes)
 
         reusedBobPublicKey = firstBobEphemeralPublicKey
 
-        val bobState2 = Ratchet.ratchetForSend(bobState1).state
+        val bobState2 = DoubleRatchet.ratchetForSend(bobState1).state
         var messageKeyBob2: MessageKey? = null
 
         bobState2.use { statePeek ->
             messageKeyBob2 = statePeek.messageKey
         }
-        val ciphertext2 = Ratchet.encrypt(messageKeyBob2!!, originalMessage)
+        val ciphertext2 = DoubleRatchet.encrypt(messageKeyBob2!!, originalMessage)
 
         // Alice receives this but with the old public key.
 
-        val aliceState2 = Ratchet.ratchetForReceive(aliceState1, reusedBobPublicKey)
+        val aliceState2 = DoubleRatchet.ratchetForReceive(aliceState1, reusedBobPublicKey)
         var messageKeyAlice2: MessageKey? = null
         aliceState2.use { statePeek ->
             messageKeyAlice2 = statePeek.messageKey
         }
 
         try {
-            val aliceCantDecrypt = Ratchet.decrypt(messageKeyAlice2!!, ciphertext2)
+            val aliceCantDecrypt = DoubleRatchet.decrypt(messageKeyAlice2!!, ciphertext2)
         }
         catch(e: Exception) {
             // TODO: Test for failure here

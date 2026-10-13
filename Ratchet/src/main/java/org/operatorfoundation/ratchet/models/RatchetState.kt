@@ -32,8 +32,8 @@ class RatchetState(
     val localEphemeralKeypair: SecureKeyPair? = null,
     val remoteEphemeralPublicKey: Curve25519PublicKey? = null,
     val sessionId: ByteArray = ByteArray(16),
-    var counterPreviousReceivedKey: Int = 0,
-    var counterPreviousSentKey: Int = 0
+    var counterLastReceivedKeyNum: Int = 0,
+    var counterLastSentKeyNum: Int = 0
 ) {
 
     fun copy(

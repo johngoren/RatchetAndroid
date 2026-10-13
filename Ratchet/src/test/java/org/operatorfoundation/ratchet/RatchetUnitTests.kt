@@ -17,7 +17,7 @@ class RatchetUnitTests {
     @Test
     fun `Single use ratchet state can make a copy that survives destruction of original`() {
 
-        val secureRatchetState = Ratchet.initRatchetState(
+        val secureRatchetState = DoubleRatchet.initRatchetState(
             mockKeypair(),
             mockKeypair().publicKey
         )
@@ -42,7 +42,7 @@ class RatchetUnitTests {
 
         aliceSecureKeypair.use { aliceKeypair ->
             bobKeypair.use { bobKeypair ->
-                val singleUseRatchetState = Ratchet.initRatchetState(
+                val singleUseRatchetState = DoubleRatchet.initRatchetState(
                     aliceSecureKeypair,
                     bobKeypair.publicKey
                 )
@@ -88,12 +88,12 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { state ->
 
                 // Perform first ratchet with new key
-                val result = Ratchet.ratchetForSend(secureInitialState)
+                val result = DoubleRatchet.ratchetForSend(secureInitialState)
                 result.state.use { ratchetedState ->
 
                     // Should now have all ephemeral state
@@ -126,7 +126,7 @@ class RatchetUnitTests {
         var copyOfRootKeyInitial: ByteArray? = null
 
         bobKeypair.use { bobKeypair ->
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
 
@@ -137,7 +137,7 @@ class RatchetUnitTests {
 
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                    Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                    DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { ratchetedState ->
 
                             assertNotNull(ratchetedState.chainKey)
@@ -182,9 +182,9 @@ class RatchetUnitTests {
         bobKeypair.use { bobKeypair ->
 
             // Setup: create state with ephemeral keys
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
-            val secureState1 = Ratchet.ratchetInternalWithNewEntropy(
+            val secureState1 = DoubleRatchet.dhRatchet(
                 secureInitialState,
                 aliceKeypair,
                 bobEphemeralKeypair.publicKey,
@@ -204,7 +204,7 @@ class RatchetUnitTests {
                 }
 
                 // Advance without new keys
-                Ratchet.symmetricRatchet(secureState1).use { state2 ->
+                DoubleRatchet.symmetricRatchet(secureState1).use { state2 ->
 
                     // Message number should increment
                     assertEquals(2, state2.messageNumber)
@@ -249,11 +249,11 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val initialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val initialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             // Should fail because there's no chain key yet
             try {
-                Ratchet.symmetricRatchet(initialState)
+                DoubleRatchet.symmetricRatchet(initialState)
                 fail("Should have thrown IllegalArgumentException")
             } catch (e: IllegalArgumentException) {
                 assertTrue(e.message!!.contains("chain key"))
@@ -269,14 +269,14 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
                 secureInitialState.use { initialState ->
 
-                    Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                    DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { state ->
 
                             val messageKeys = mutableListOf(state.messageKey!!.bytes)
@@ -286,7 +286,7 @@ class RatchetUnitTests {
                             repeat(5)
                             {
 
-                                Ratchet.symmetricRatchet(previousState)
+                                DoubleRatchet.symmetricRatchet(previousState)
                                     .use { newState ->
                                         messageKeys.add(newState.messageKey!!.bytes)
                                         previousState = SecureRatchetState(newState)
@@ -317,11 +317,11 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             secureInitialState.use { initialState ->
                 val bobEphemeralKeypair = mockKeypair()
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
-                    Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                    DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { state ->
 
                             val originalMessage = PlaintextMessage(
@@ -330,10 +330,10 @@ class RatchetUnitTests {
                             )
 
                             // Encrypt
-                            val ciphertext = Ratchet.encrypt(state.messageKey!!, originalMessage)
+                            val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, originalMessage)
 
                             // Decrypt with same key
-                            val decryptedMessage = Ratchet.decrypt(state.messageKey!!, ciphertext)
+                            val decryptedMessage = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
 
                             assertEquals(originalMessage.type, decryptedMessage!!.type)
                             assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
@@ -350,12 +350,12 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                     .use { state ->
 
                         val message = PlaintextMessage(
@@ -363,8 +363,8 @@ class RatchetUnitTests {
                             "Same message".toByteArray()
                         )
 
-                        val ciphertext1 = Ratchet.encrypt(state.messageKey!!, message)
-                        val ciphertext2 = Ratchet.encrypt(state.messageKey!!, message)
+                        val ciphertext1 = DoubleRatchet.encrypt(state.messageKey!!, message)
+                        val ciphertext2 = DoubleRatchet.encrypt(state.messageKey!!, message)
 
                         // Different nonces mean different ciphertexts
                         assertFalse(ciphertext1.nonce.bytes.contentEquals(ciphertext2.nonce.bytes))
@@ -381,16 +381,16 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                     .use { state1 ->
                         val state2 =
-                            Ratchet.symmetricRatchet(SecureRatchetState(state1))
+                            DoubleRatchet.symmetricRatchet(SecureRatchetState(state1))
 
                         val message = PlaintextMessage(
                             PlaintextMessageType.DATA,
@@ -398,12 +398,12 @@ class RatchetUnitTests {
                         )
 
                         // Encrypt with state1's key
-                        val ciphertext = Ratchet.encrypt(state1.messageKey!!, message)
+                        val ciphertext = DoubleRatchet.encrypt(state1.messageKey!!, message)
 
                         // Try to decrypt with state2's key (should fail)
                         try {
                             state2.use { state2peek ->
-                                Ratchet.decrypt(state2peek.messageKey!!, ciphertext)
+                                DoubleRatchet.decrypt(state2peek.messageKey!!, ciphertext)
                                 fail("Should have thrown SecurityException")
                             }
                         } catch (e: SecurityException) {
@@ -425,12 +425,12 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                     .use { state ->
 
                         // Alice encrypts a message
@@ -438,10 +438,10 @@ class RatchetUnitTests {
                             PlaintextMessageType.DATA,
                             "Hello!".toByteArray()
                         )
-                        val ciphertext = Ratchet.encrypt(state.messageKey!!, message)
+                        val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, message)
 
                         // Alice can decrypt with the same key
-                        val decrypted = Ratchet.decrypt(state.messageKey!!, ciphertext)
+                        val decrypted = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
 
                         assertEquals(PlaintextMessageType.DATA, decrypted!!.type)
                         assertEquals("Hello!", String(decrypted!!.bytes))
@@ -460,13 +460,13 @@ class RatchetUnitTests {
         bobKeypair.use { bobKeypair ->
             // Alice initializes and performs first ratchet
             val aliceSecureInitialState =
-                Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+                DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             val bobEphemeralKeypair = mockKeypair()
 
             bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                val aliceState1 = Ratchet.ratchetForReceive(
+                val aliceState1 = DoubleRatchet.ratchetForReceive(
                     aliceSecureInitialState,
                     bobEphemeralKeypair.publicKey
                 )
@@ -478,11 +478,11 @@ class RatchetUnitTests {
                             PlaintextMessageType.DATA,
                             "Message 1".toByteArray()
                         )
-                    val ciphertext1 = Ratchet.encrypt(aliceState1peek.messageKey!!, message1)
+                    val ciphertext1 = DoubleRatchet.encrypt(aliceState1peek.messageKey!!, message1)
                     alice1messageKey = MessageKey(aliceState1peek.messageKey.bytes)
 
                     // Alice advances her ratchet for message 2
-                    val aliceState2 = Ratchet.symmetricRatchet(aliceState1)
+                    val aliceState2 = DoubleRatchet.symmetricRatchet(aliceState1)
                     val message2 =
                         PlaintextMessage(
                             PlaintextMessageType.DATA,
@@ -492,20 +492,20 @@ class RatchetUnitTests {
                     aliceState2.use { aliceState2peek ->
 
                         val ciphertext2 =
-                            Ratchet.encrypt(aliceState2peek.messageKey!!, message2)
+                            DoubleRatchet.encrypt(aliceState2peek.messageKey!!, message2)
 
                         // Both messages can be decrypted with their respective keys
                         val decrypted1 =
-                            Ratchet.decrypt(alice1messageKey!!, ciphertext1)
+                            DoubleRatchet.decrypt(alice1messageKey!!, ciphertext1)
                         val decrypted2 =
-                            Ratchet.decrypt(aliceState2peek.messageKey!!, ciphertext2)
+                            DoubleRatchet.decrypt(aliceState2peek.messageKey!!, ciphertext2)
 
                         assertEquals("Message 1", String(decrypted1!!.bytes))
                         assertEquals("Message 2", String(decrypted2!!.bytes))
 
                         // Verify messages can't be decrypted with wrong keys
                         try {
-                            Ratchet.decrypt(aliceState2peek.messageKey!!, ciphertext1)
+                            DoubleRatchet.decrypt(aliceState2peek.messageKey!!, ciphertext1)
                             fail("Should not decrypt with wrong key")
                         } catch (e: SecurityException) {
                             // Expected - demonstrates forward secrecy
@@ -523,14 +523,14 @@ class RatchetUnitTests {
 
         bobKeypair.use { bobKeypair ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+            val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
             secureInitialState.use { initialState ->
                 val bobEphemeralKeypair = mockKeypair()
 
                 bobEphemeralKeypair.use { bobEphemeralKeypair ->
 
-                    Ratchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
+                    DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeralKeypair.publicKey)
                         .use { state ->
 
                             assertEquals(1, state.messageNumber)
@@ -539,7 +539,7 @@ class RatchetUnitTests {
 
                             // Advance 10 times
                             repeat(10) { i ->
-                                Ratchet.symmetricRatchet(previousState)
+                                DoubleRatchet.symmetricRatchet(previousState)
                                     .use { newState ->
                                         assertEquals(i + 2, newState.messageNumber)
                                         assertNotNull(newState.messageKey)
@@ -576,12 +576,12 @@ class RatchetUnitTests {
                 bobEphemeral2.use { bobEphemeral2 ->
 
                     val secureInitialState =
-                        Ratchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
+                        DoubleRatchet.initRatchetState(aliceKeypair, bobKeypair.publicKey)
 
                     secureInitialState.use { initialState ->
 
                         val state1 =
-                            Ratchet.ratchetForReceive(secureInitialState, bobEphemeral1.publicKey)
+                            DoubleRatchet.ratchetForReceive(secureInitialState, bobEphemeral1.publicKey)
                         state1.use { state1peek ->
 
                             state1RootKey = state1peek.rootKey.bytes
@@ -590,7 +590,7 @@ class RatchetUnitTests {
                             state1MessageKey = state1peek.messageKey?.bytes
                             state1RemoteEphemeralPublicKey = state1peek.remoteEphemeralPublicKey?.bytes
 
-                            Ratchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
+                            DoubleRatchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
                                 .use { state2 ->
 
                                     // All ephemeral keys should be different

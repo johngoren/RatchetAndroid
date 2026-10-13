@@ -1,7 +1,7 @@
 package org.operatorfoundation.ratchet.models.keys.restriction
 
 import androidx.annotation.VisibleForTesting
-import org.operatorfoundation.ratchet.Ratchet
+import org.operatorfoundation.ratchet.DoubleRatchet
 
 open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
     var isDestroyed: Boolean = false
@@ -9,8 +9,8 @@ open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
     private val _keyBytes: ByteArray
 
     init {
-        require(keyBytes.size == Ratchet.NUM_BYTES_IN_KEY) {
-            "AES-256 key must be ${Ratchet.NUM_BYTES_IN_KEY} bytes"
+        require(keyBytes.size == DoubleRatchet.NUM_BYTES_IN_KEY) {
+            "AES-256 key must be ${DoubleRatchet.NUM_BYTES_IN_KEY} bytes"
         }
         _keyBytes = keyBytes.copyOf()
     }
