@@ -38,4 +38,14 @@ object ContextField {
             .toString(RADIX_FOR_COUNTER_ENCODING)
             .toByteArray(Charsets.UTF_8)
     }
+
+    object RootKey {
+        const val SALT = "SHOUT-v1-Salt-RootKey"
+        const val INFOPREFIX = "SHOUT-ROOT"
+    }
+
+    object ChainKey {
+        const val INFOPREFIX = "SHOUT-CHAIN"
+    }
+
 }

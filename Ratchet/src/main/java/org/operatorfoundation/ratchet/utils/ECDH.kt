@@ -21,7 +21,7 @@ object ECDH {
             copyOfPrivateKeyBytes = privateKeyPeek.copyOf()
         }
 
-        return try {
+        try {
             // BouncyCastle X25519 key agreement
 
             // Ensure we have the correct key sizes

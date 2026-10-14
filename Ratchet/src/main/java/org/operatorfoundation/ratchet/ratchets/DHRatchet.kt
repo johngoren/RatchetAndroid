@@ -3,7 +3,6 @@ package org.operatorfoundation.ratchet.ratchets
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
-import org.operatorfoundation.ratchet.KeyContext
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
@@ -32,13 +31,14 @@ import org.operatorfoundation.ratchet.utils.HMAC
 
 object DHRatchet {
 
-    // TODO: Defensive quality checks around all of these keys.
-    // TODO: Understand better how we store or do not store keys in state.
+    // TODO: Defensive quality checks around any incoming key.
+    // TODO: Understand better how we store or do not store ECDHE in state.
 
     fun perform(
         oldState: SecureRatchetState,
-        localEphemeralKeypair: SecureKeyPair?,          // TODO: Safe to make this non-nullable?
-        incomingPublicKey: Curve25519PublicKey        // Incoming ephemeral PK
+        localEphemeralKeypair: SecureKeyPair,          // TODO: Safe to make this non-nullable?
+        incomingPublicKey: Curve25519PublicKey,        // Incoming ephemeral PK
+        incomingCounter: Int? = null
     ): SecureRatchetState
     {
         var copyOfLocalLongtermKeypair: SecureKeyPair? = null
@@ -52,7 +52,7 @@ object DHRatchet {
         var hmacOutput: ByteArray? = null
 
         return try {
-            localEphemeralKeypair?.use { localECDHEPeek ->
+            localEphemeralKeypair.use { localECDHEPeek ->
                 require(localECDHEPeek.privateKey.bytes.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
                 copyOfLocalEphemeralPrivateKey = localECDHEPeek.privateKey.bytes.copyOf()
             }
@@ -93,9 +93,8 @@ object DHRatchet {
             // was: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
 
-            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(KeyContext.ChainKey.INFOPREFIX, copyOfSessionId, messageNum)
-
-            // TODO: Double check and leave a note here: this is the extra step right?
+            // TODO: Make it the counter, not the message number?
+            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, copyOfSessionId, incomingCounter ?: 0) // TODO: Remove fallback
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey.bytes,
@@ -120,7 +119,8 @@ object DHRatchet {
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
                 localEphemeralKeypair = localEphemeralKeypair,  // TODO: Check this!! And which one ends up in result!!
-                remoteEphemeralPublicKey = incomingPublicKey
+                remoteEphemeralPublicKey = incomingPublicKey,
+                counterLastReceivedKeyNum = incomingCounter ?: null     // TODO: Remove fallback?
             )
             SecureRatchetState(newState)
         }

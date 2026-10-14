@@ -1,6 +1,5 @@
 package org.operatorfoundation.ratchet.utils
 
-import org.operatorfoundation.ratchet.KeyContext
 import org.operatorfoundation.ratchet.models.keys.Secret
 
 object HKDF {
@@ -30,7 +29,7 @@ object HKDF {
 
     fun forRootKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
-        val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
+        val salt = (ContextField.RootKey.SALT).toByteArray(Charsets.UTF_8)
 
         // TODO: Enforce proper secret size inside sharedSecret.
 

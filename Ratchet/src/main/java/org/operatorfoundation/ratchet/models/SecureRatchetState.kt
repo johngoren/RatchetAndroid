@@ -1,14 +1,14 @@
 package org.operatorfoundation.ratchet.models
 
 
-class SecureRatchetState(newRatchetState: RatchetState): AutoCloseable {
+class SecureRatchetState(state: RatchetState): AutoCloseable {
 
     var isDestroyed: Boolean = false
 
     private val _ratchetState: RatchetState
 
     init {
-        _ratchetState = newRatchetState.copy()
+        _ratchetState = state.copy()
     }
 
     fun use(block: (RatchetState) -> Unit) {
