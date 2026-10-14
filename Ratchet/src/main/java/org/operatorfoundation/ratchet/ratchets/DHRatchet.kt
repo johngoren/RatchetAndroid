@@ -120,7 +120,7 @@ object DHRatchet {
                 messageKey = messageKey,
                 localEphemeralKeypair = localEphemeralKeypair,  // TODO: Check this!! And which one ends up in result!!
                 remoteEphemeralPublicKey = incomingPublicKey,
-                counterLastReceivedKeyNum = incomingCounter ?: null     // TODO: Remove fallback?
+                counterLastReceivedKeyNum = incomingCounter ?: 0    // TODO: Remove fallback?
             )
             SecureRatchetState(newState)
         }
