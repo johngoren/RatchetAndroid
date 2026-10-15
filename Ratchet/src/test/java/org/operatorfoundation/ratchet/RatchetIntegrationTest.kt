@@ -34,7 +34,7 @@ class RatchetIntegrationTest {
                 assertNull(statePeek.sharedKey)
                 assertNull(statePeek.messageKey)
                 assertNull(statePeek.localEphemeralKeypair)
-                assertNull(statePeek.remoteEphemeralPublicKey)
+                assertNull(statePeek.lastKnownRemotePublicEphemeralKey)
             }
         }
     }
@@ -136,7 +136,7 @@ class RatchetIntegrationTest {
                     assertNotNull(newState.sharedKey)
                     assertNotNull(newState.messageKey)
 //                    assertNotNull(newState.localEphemeralKeypair)
-                    assertNotNull(newState.remoteEphemeralPublicKey)
+                    assertNotNull(newState.lastKnownRemotePublicEphemeralKey)
 
                     // Root key should change
                     assertFalse(initialStateRootKey.contentEquals(newState.rootKey.bytes))
@@ -183,7 +183,7 @@ class RatchetIntegrationTest {
             state1Peek.localLongtermKeypair.use {
                 state1localPrivateKey = it.privateKey.bytes.copyOf()
             }
-            state1remoteEphemeralPublicKey = state1Peek.remoteEphemeralPublicKey?.bytes?.copyOf()
+            state1remoteEphemeralPublicKey = state1Peek.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
             DoubleRatchet.symmetricRatchet(state1).use { state2 ->
                 // Chain and message keys should change (symmetric ratchet)
@@ -208,7 +208,7 @@ class RatchetIntegrationTest {
                 }
                 assertArrayEquals(
                     state1remoteEphemeralPublicKey,
-                    state2.remoteEphemeralPublicKey?.bytes
+                    state2.lastKnownRemotePublicEphemeralKey?.bytes
                 )
 
                 // Message number should increment

@@ -75,7 +75,7 @@ class RatchetUnitTests {
                     assertNull(state.sharedKey)
                     assertNull(state.messageKey)
                     assertNull(state.localEphemeralKeypair)
-                    assertNull(state.remoteEphemeralPublicKey)
+                    assertNull(state.lastKnownRemotePublicEphemeralKey)
                 }
             }
         }
@@ -143,7 +143,7 @@ class RatchetUnitTests {
                             assertNotNull(ratchetedState.chainKey)
                             assertNotNull(ratchetedState.sharedKey)
                             assertNotNull(ratchetedState.messageKey)
-                            assertNotNull(ratchetedState.remoteEphemeralPublicKey)
+                            assertNotNull(ratchetedState.lastKnownRemotePublicEphemeralKey)
 
                             // Should now have all ephemeral state
 
@@ -197,7 +197,7 @@ class RatchetUnitTests {
                 state1messageKey = state1.messageKey?.bytes?.copyOf()
                 state1sharedKey = state1.sharedKey?.bytes?.copyOf()
                 state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
-                state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytes?.copyOf()
+                state1remoteEphemeralPublic = state1.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
                 state1.localLongtermKeypair.use { state1LocalLongtermKeypair ->
                     state1localPrivateKey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
@@ -232,7 +232,7 @@ class RatchetUnitTests {
                     }
                     assertArrayEquals(
                         state1remoteEphemeralPublic,
-                        state2.remoteEphemeralPublicKey?.bytes
+                        state2.lastKnownRemotePublicEphemeralKey?.bytes
                     )
 
                     // Root key should stay the same
@@ -588,7 +588,7 @@ class RatchetUnitTests {
                             state1ChainKey = state1peek.chainKey?.bytes
                             state1SharedKey = state1peek.sharedKey?.bytes
                             state1MessageKey = state1peek.messageKey?.bytes
-                            state1RemoteEphemeralPublicKey = state1peek.remoteEphemeralPublicKey?.bytes
+                            state1RemoteEphemeralPublicKey = state1peek.lastKnownRemotePublicEphemeralKey?.bytes
 
                             DoubleRatchet.ratchetForReceive(state1, bobEphemeral2.publicKey)
                                 .use { state2 ->
@@ -608,7 +608,7 @@ class RatchetUnitTests {
                                     )
                                     assertNotEquals(
                                         state1RemoteEphemeralPublicKey,
-                                        state2.remoteEphemeralPublicKey
+                                        state2.lastKnownRemotePublicEphemeralKey
                                     )
                                 }
                         }

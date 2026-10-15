@@ -28,7 +28,7 @@ import org.operatorfoundation.ratchet.utils.HKDF
  *
  */
 
-class MustReestablishHandshakeException: Exception("The session has become invalid. Please redo the handshake.")
+class RedoHandshakeException(message: String = "Something went wrong. You need to renegotiate the handshake"): Exception(message)
 
 object DoubleRatchet
 {
@@ -49,45 +49,43 @@ object DoubleRatchet
      * According to the spec:
      * R_0 = ECDH(priv_a0, k_b0)
      *
-     * @param localLongtermKeypair The local party's long-term key pair
-     * @param remoteLongtermPublicKey The remote party's long-term public key
+     * @param initialLocalKeypair The user's initial ephemeral keypair, set up earlier via handshake.
+     * @param initialRemotePublicKey The remote party's first ephemeral public key
      * @return The initial ratchet state
      */
     fun initRatchetState(
-        localLongtermKeypair: SecureKeyPair,
-        remoteLongtermPublicKey: Curve25519PublicKey,
-        sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce
+        initialLocalKeypair: SecureKeyPair,
+        initialRemotePublicKey: Curve25519PublicKey,
+        sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce and make sure it's not repeatable from OOB
     ): SecureRatchetState
     {
         var newRatchetState: SecureRatchetState? = null
 
-        val copyOfLongtermKeypair = localLongtermKeypair.copyOf()
-        val copyOfRemoteLongtermPublicKey = Curve25519PublicKey(remoteLongtermPublicKey.bytes.copyOf())
-        var copyOfLocalPrivateKey: PrivateKey? = null
+        val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
+        val copyOfInitialRemotePublicKey = Curve25519PublicKey(initialRemotePublicKey.bytes.copyOf())
+        var copyOfInitialLocalPrivateKey: PrivateKey? = null
         val copyOfSessionId = sessionId.copyOf()
         var hkdfOutput: ByteArray? = null
-        var sharedSecret: Secret? = null
+        var initialSharedSecret: Secret? = null
         var newState: RatchetState? = null
 
         return try {
-            require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of sessionID" }
+            require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of session nonce" }
 
-            copyOfLongtermKeypair.use { localKeypairPeek ->
+            copyOfInitialLocalKeypair.use { localKeypairPeek ->
 
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
-                copyOfLocalPrivateKey = PrivateKey(localKeypairPeek.privateKey.bytes)
-                sharedSecret = ECDH.perform(copyOfLocalPrivateKey, copyOfRemoteLongtermPublicKey)
+                copyOfInitialLocalPrivateKey = PrivateKey(localKeypairPeek.privateKey.bytes)
+                initialSharedSecret = ECDH.perform(copyOfInitialLocalPrivateKey, copyOfInitialRemotePublicKey)
 
-                // TODO: Put down a note here if necessary, is this a new derivation step?
+                // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
-                    sharedSecret,
+                    initialSharedSecret,
                     ContextField.getInfo(ContextField.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
                 )
 
                 // Return initial state with defaults for optional fields
                 newState = RatchetState(
-                    localLongtermKeypair = copyOfLongtermKeypair,
-                    remoteLongtermPublicKey = copyOfRemoteLongtermPublicKey,
                     rootKey = RootKey.fromHKDF(hkdfOutput),
                     sessionId = copyOfSessionId.copyOf()
                 )
@@ -97,15 +95,14 @@ object DoubleRatchet
         }
         catch(e: Exception) {
             newState?.close()
-            invalidateAllState(localLongtermKeypair, remoteLongtermPublicKey)
-            error(ERROR_MESSAGE_NEW_HANDSHAKE_REQUIRED)
+            throw RedoHandshakeException(e.message ?: "Something went wrong in initialization")
         }
         finally {
-            copyOfLongtermKeypair.close()
-            copyOfRemoteLongtermPublicKey.bytes.fill(0)
-            copyOfLocalPrivateKey?.close()
+            copyOfInitialLocalKeypair.close()
+            copyOfInitialRemotePublicKey.bytes.fill(0)
+            copyOfInitialLocalPrivateKey?.close()
             copyOfSessionId.fill(0)
-            sharedSecret?.close()
+            initialSharedSecret?.close()
             hkdfOutput?.fill(0)
         }
     }
@@ -119,25 +116,27 @@ object DoubleRatchet
      * @param oldState The current ratchet state
      * @return Result containing the new state and the ephemeral public key to send
      */
+
+    // TODO: Where to update outgoing counter?
+    // TODO: Consistent copying behavior
     fun ratchetForSend(oldState: SecureRatchetState): RatchetSendResult
     {
         var result: RatchetSendResult? = null
 
         val newEphemeralKeypair = generateEphemeralKeypair()
-        var remoteKey: Curve25519PublicKey? = null
+        var copyOfRemoteKeyBytes: ByteArray? = null
 
         return try {
-            oldState.use { oldState ->
-                remoteKey = oldState.remoteEphemeralPublicKey ?: MADH.generateKeypair().publicKey   // TODO: And bind to counter.
+            oldState.use { oldStatePeek ->
+                copyOfRemoteKeyBytes = oldStatePeek.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
+                require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
 
                 DHRatchet.perform(
-                    oldState=SecureRatchetState(oldState),
-                    localEphemeralKeypair = newEphemeralKeypair.copyOf(),
-                    incomingPublicKey = Curve25519PublicKey(remoteKey.bytes.copyOf()))
+                    oldState = oldState,
+                    localEphemeralKeypair = newEphemeralKeypair,
+                    remotePublicKey = Curve25519PublicKey(copyOfRemoteKeyBytes!!)
+                )
                 .use { newState ->
-                    val newOutgoingCounter = oldState.counterLastSentKeyNum + 1
-                    newState.counterLastSentKeyNum = newOutgoingCounter
-
                     val newRatchetState = SecureRatchetState(newState)
                     result = RatchetSendResult(
                         newRatchetState,
@@ -145,14 +144,14 @@ object DoubleRatchet
                     )
                 }
             }
-        result ?: throw Exception("Null ratchet send result")
+        result ?: throw RedoHandshakeException("Trouble creating ratchet result")
         }
         catch(e: Exception) {
-            throw e             // TODO: Granular error handling
+            throw RedoHandshakeException()
         }
         finally {
             newEphemeralKeypair.close()
-            remoteKey?.bytes?.fill(0)
+            copyOfRemoteKeyBytes?.fill(0)
         }
     }
 
@@ -165,6 +164,7 @@ object DoubleRatchet
      * @param incomingCounter The message counter number that was received from the sender
      * @return The updated ratchet state
      */
+
     fun ratchetForReceive(oldStateSecure: SecureRatchetState, incomingEphemeralPublicKey: Curve25519PublicKey, incomingCounter: Int? = null): SecureRatchetState {
         var newRatchetState: SecureRatchetState? = null
         var localEphemeralKeypair: SecureKeyPair? = null
@@ -173,24 +173,25 @@ object DoubleRatchet
             oldStateSecure.use { oldStatePeek ->
                 localEphemeralKeypair = oldStatePeek.localEphemeralKeypair ?: SecureKeyPair(MADH.generateKeypair()) // TODO: And bind to counter. Can do all in one function
 
-                // TODO: It shouldn't be nullable
                 incomingCounter?.also {
                     validateCounter(incomingCounter, oldStatePeek.counterLastReceivedKeyNum)
                 }
 
+                // TODO: The DHRatchet receives either an outgoing or incoming counter, +1 from the last one
+
                 val resultingRatchetState = DHRatchet.perform(
                     oldState = oldStateSecure,
                     localEphemeralKeypair = localEphemeralKeypair,
-                    incomingPublicKey = incomingEphemeralPublicKey,
-                    incomingCounter = incomingCounter
+                    remotePublicKey = incomingEphemeralPublicKey,
+                    counter = incomingCounter
                 )
 
                 newRatchetState = resultingRatchetState
             }
-            require(newRatchetState != null) { "Null ratchet state" }
+            require(newRatchetState != null) { throw RedoHandshakeException("Null ratchet state") }
             newRatchetState
         } catch(e: Exception) {
-            throw e     // TODO: Catch errors
+            throw RedoHandshakeException(e.message ?: "Something went wrong while receiving a message")
         }
         finally {
             localEphemeralKeypair?.close()
@@ -242,7 +243,7 @@ object DoubleRatchet
         var copyOfPlaintextBytes: ByteArray? = null
         var aesKey: AesGcmKey? = null
 
-        return try {
+        try {
             // Serialize the plaintext message to bytes
             copyOfPlaintextBytes = plaintext.toBytes()
 
@@ -297,8 +298,6 @@ object DoubleRatchet
     }
 
 
-
-
     /**
      * Secure wrapper for keypair maker
      */
@@ -307,14 +306,7 @@ object DoubleRatchet
         return SecureKeyPair(MADH.generateKeypair())
     }
 
-    private fun invalidateAllState(localLongtermKeypair: SecureKeyPair, remotePublicKey: Curve25519PublicKey) {
-        localLongtermKeypair.close()
-        remotePublicKey.bytes.fill(0)
-    }
-
     val RADIX_FOR_COUNTER_ENCODING = 16
-
-
 
     private fun decodeHexBytesToNumber(bytes: ByteArray): Int? {
         try {

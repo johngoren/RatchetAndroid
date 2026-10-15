@@ -36,14 +36,14 @@ object DHRatchet {
 
     fun perform(
         oldState: SecureRatchetState,
-        localEphemeralKeypair: SecureKeyPair,          // TODO: Safe to make this non-nullable?
-        incomingPublicKey: Curve25519PublicKey,        // Incoming ephemeral PK
-        incomingCounter: Int? = null
+        localEphemeralKeypair: SecureKeyPair,
+        remotePublicKey: Curve25519PublicKey,        // Incoming ephemeral PK
+        counter: Int? = null,
+        outgoingCounter: Int? = null
     ): SecureRatchetState
     {
-        var copyOfLocalLongtermKeypair: SecureKeyPair? = null
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
-        var copyOfIncomingPublicKey: Curve25519PublicKey? = null
+        var copyOfRemotePublicKey: Curve25519PublicKey? = null
         var copyOfOldRootKey: SecureKey? = null
         var copyOfSessionId: ByteArray? = null
         var messageNum: Int? = null
@@ -59,8 +59,7 @@ object DHRatchet {
 
             oldState.use { oldStatePeek ->
                 oldStatePeek.apply {
-                    copyOfLocalLongtermKeypair = localLongtermKeypair.copyOf()
-                    copyOfIncomingPublicKey = Curve25519PublicKey(incomingPublicKey.bytes.copyOf())
+                    copyOfRemotePublicKey = Curve25519PublicKey(remotePublicKey.bytes.copyOf())
                     copyOfOldRootKey = RootKey(rootKey.bytes)
                     copyOfSessionId = sessionId
                     messageNum = messageNumber
@@ -78,23 +77,21 @@ object DHRatchet {
             }
             // ** end temporary crutch **
 
-            require(copyOfLocalLongtermKeypair != null) { "No copy available of local longterm keypair" }
             require(copyOfLocalEphemeralPrivateKey != null) { "No copy available of local ECDHE private key" }
-            require(copyOfIncomingPublicKey != null) { "No copy of remote public key" }
+            require(copyOfRemotePublicKey != null) { "No copy of remote public key" }
             require(copyOfSessionId != null) { "No copy of session ID" }
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-            sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey!!.copyOf()), copyOfIncomingPublicKey)
+            sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey!!.copyOf()), copyOfRemotePublicKey)
             val newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys:
             // was: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
 
-            // TODO: Make it the counter, not the message number?
-            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, copyOfSessionId, incomingCounter ?: 0) // TODO: Remove fallback
+            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, copyOfSessionId, counter ?: 0) // TODO: Remove fallback
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey.bytes,
@@ -111,16 +108,15 @@ object DHRatchet {
             val messageKey = MessageKey.fromHMAC(hmacOutput)
 
             val newState = RatchetState(
-                localLongtermKeypair = copyOfLocalLongtermKeypair,
-                remoteLongtermPublicKey = copyOfIncomingPublicKey,
                 rootKey = newRootKey,
                 messageNumber = newMessageNumber,
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
                 localEphemeralKeypair = localEphemeralKeypair,  // TODO: Check this!! And which one ends up in result!!
-                remoteEphemeralPublicKey = incomingPublicKey,
-                counterLastReceivedKeyNum = incomingCounter ?: 0    // TODO: Remove fallback?
+                lastKnownRemotePublicEphemeralKey = remotePublicKey,
+
+                counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
             )
             SecureRatchetState(newState)
         }
@@ -128,7 +124,7 @@ object DHRatchet {
             throw e
         } finally {
             copyOfOldRootKey?.bytes?.fill(0)
-            copyOfIncomingPublicKey?.bytes?.fill(0)
+            copyOfRemotePublicKey?.bytes?.fill(0)
             copyOfLocalEphemeralPrivateKey?.fill(0)
             sharedSecret?.bytes?.fill(0)
             hkdfOutput?.fill(0)
