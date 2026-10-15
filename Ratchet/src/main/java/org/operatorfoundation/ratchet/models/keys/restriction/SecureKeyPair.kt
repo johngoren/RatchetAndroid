@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.models.keys.restriction
 
+import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
@@ -19,6 +20,12 @@ open class SecureKeyPair(private val curve25519KeyPair: Curve25519KeyPair): Auto
         get() {
             return Curve25519PublicKey(_publicKeyBytes.copyOf())
     }
+
+    @VisibleForTesting
+    val privateKeyBytesForTesting: ByteArray
+        get() {
+            return _privateKeyBytes
+        }
 
     fun use(block: (Curve25519KeyPair)->Unit) {
         check(!isDestroyed) { "Keypair has been destroyed "}

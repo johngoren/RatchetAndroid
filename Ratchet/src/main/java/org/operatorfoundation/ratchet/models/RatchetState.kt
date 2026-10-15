@@ -43,8 +43,6 @@ class RatchetState(
         localEphemeralKeypair: SecureKeyPair? = this.localEphemeralKeypair,
         remoteEphemeralPublicKey: Curve25519PublicKey? = this.lastKnownRemotePublicEphemeralKey): RatchetState
     {
-        var copyOfLocalLongtermKeypair: SecureKeyPair? = null
-
         val copyOfRootKey = RootKey(rootKey.bytes.copyOf())
         val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes.copyOf()) } else { null }
         val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes.copyOf()) } else { null }
@@ -63,8 +61,6 @@ class RatchetState(
         val copyOfRemoteEphemeralPublicKey = if (remoteEphemeralPublicKey == null) { null } else {
             Curve25519PublicKey(remoteEphemeralPublicKey.bytes.copyOf())
         }
-
-        require(copyOfLocalLongtermKeypair != null) { "Could not copy keypairs "}
 
         return RatchetState( copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey, sessionId)
     }

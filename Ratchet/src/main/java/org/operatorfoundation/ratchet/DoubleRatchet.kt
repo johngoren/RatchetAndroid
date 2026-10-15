@@ -87,7 +87,9 @@ object DoubleRatchet
                 // Return initial state with defaults for optional fields
                 newState = RatchetState(
                     rootKey = RootKey.fromHKDF(hkdfOutput),
-                    sessionId = copyOfSessionId.copyOf()
+                    sessionId = copyOfSessionId.copyOf(),
+                    localEphemeralKeypair = initialLocalKeypair,
+                    lastKnownRemotePublicEphemeralKey = initialRemotePublicKey
                 )
                 newRatchetState = SecureRatchetState(newState)
             }

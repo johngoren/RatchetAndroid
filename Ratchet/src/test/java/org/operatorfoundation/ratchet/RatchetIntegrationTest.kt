@@ -179,10 +179,6 @@ class RatchetIntegrationTest {
             state1rootKey = state1Peek.rootKey.bytes.copyOf()
             state1messageKey = state1Peek.messageKey?.bytes?.copyOf()
             state1sharedKey = state1Peek.sharedKey?.bytes?.copyOf()
-            state1localPublicKey = state1Peek.localLongtermKeypair.publicKey.bytes.copyOf()
-            state1Peek.localLongtermKeypair.use {
-                state1localPrivateKey = it.privateKey.bytes.copyOf()
-            }
             state1remoteEphemeralPublicKey = state1Peek.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
             DoubleRatchet.symmetricRatchet(state1).use { state2 ->

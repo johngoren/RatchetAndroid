@@ -36,7 +36,7 @@ class RatchetUnitTests {
     // ========== RatchetState Tests ==========
 
     @Test
-    fun `newRatchetState creates initial state with longterm keys only`() {
+    fun `newRatchetState creates initial state with initial ephemeral keys only`() {
         val aliceSecureKeypair = mockKeypair()
         val bobKeypair = mockKeypair()
 
@@ -49,24 +49,24 @@ class RatchetUnitTests {
 
                 singleUseRatchetState.use { state ->
 
-                    // Initial state should have longterm keys and root key
+                    // Initial state should have ephemeral keys and root key
                     assertNotNull(state.rootKey)
                     assertEquals(32, state.rootKey.bytes.size)
                     assertArrayEquals(
                         aliceKeypair.publicKey.bytes,
-                        state.localLongtermKeypair.publicKey.bytes
+                        state.localEphemeralKeypair?.publicKey?.bytes
                     )
 
-                    state.localLongtermKeypair.use { localLongtermKeypair ->
+                    state.localEphemeralKeypair.use { localEphemeralKeypair ->
                         assertArrayEquals(
                             aliceKeypair.privateKey.bytes,
-                            localLongtermKeypair.privateKey.bytes
+                            localEphemeralKeypair?.privateKeyBytesForTesting
                         )
                     }
 
                     assertArrayEquals(
                         bobKeypair.publicKey.bytes,
-                        state.remoteLongtermPublicKey.bytes
+                        state.lastKnownRemotePublicEphemeralKey?.bytes
                     )
 
                     // Ephemeral state should be null/default
@@ -199,8 +199,8 @@ class RatchetUnitTests {
                 state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
                 state1remoteEphemeralPublic = state1.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
-                state1.localLongtermKeypair.use { state1LocalLongtermKeypair ->
-                    state1localPrivateKey = state1LocalLongtermKeypair.privateKey.bytes.copyOf()
+                state1.localEphemeralKeypair.use { state1LocalEphemeralKeypair ->
+                    state1localPrivateKey = state1LocalEphemeralKeypair?.privateKeyBytesForTesting?.copyOf()
                 }
 
                 // Advance without new keys
@@ -223,10 +223,10 @@ class RatchetUnitTests {
                         state2.localEphemeralKeypair?.publicKey?.bytes
                     )
 
-                    state2.localLongtermKeypair.use { state2Keypair ->
+                    state2.localEphemeralKeypair.use { state2Keypair ->
                         assertArrayEquals(
                             state1localPrivateKey,
-                            state2Keypair.privateKey.bytes
+                            state2Keypair?.privateKeyBytesForTesting
                         )
 
                     }
