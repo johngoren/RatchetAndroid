@@ -7,7 +7,7 @@ import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
 
 object TestUtils {
 
-    fun mockKeypair(): SecureKeyPair {
+    fun mockEphemeralKeypair(): SecureKeyPair {
         return SecureKeyPair(MADH.generateKeypair())
     }
 

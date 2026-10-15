@@ -5,7 +5,7 @@ import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
 
-open class SecureKeyPair(private val curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
+open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
     var isDestroyed: Boolean = false
 
     private val _publicKeyBytes: ByteArray = curve25519KeyPair.publicKey.bytes.copyOf()

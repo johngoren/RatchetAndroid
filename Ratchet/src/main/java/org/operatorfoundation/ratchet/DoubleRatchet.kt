@@ -173,7 +173,8 @@ object DoubleRatchet
 
         return try {
             oldStateSecure.use { oldStatePeek ->
-                localEphemeralKeypair = oldStatePeek.localEphemeralKeypair ?: SecureKeyPair(MADH.generateKeypair()) // TODO: And bind to counter. Can do all in one function
+                require(oldStatePeek.localEphemeralKeypair != null) { throw RedoHandshakeException("No local ephemeral keys available") }
+                localEphemeralKeypair = oldStatePeek.localEphemeralKeypair
 
                 incomingCounter?.also {
                     validateCounter(incomingCounter, oldStatePeek.counterLastReceivedKeyNum)

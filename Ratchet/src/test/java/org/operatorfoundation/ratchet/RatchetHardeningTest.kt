@@ -3,15 +3,15 @@ package org.operatorfoundation.ratchet
 import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.ratchet.TestUtils.mockKeypair
+import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 
 class RatchetHardeningTest {
 
     @Test
     fun `Reuse of ECDH public key is thwarted by counter`() {
-        val aliceKeypair = mockKeypair()
-        val bobKeypair = mockKeypair()
+        val aliceKeypair = mockEphemeralKeypair()
+        val bobKeypair = mockEphemeralKeypair()
 
         var firstBobEphemeralPublicKey: Curve25519PublicKey? = null
         var reusedBobPublicKey: Curve25519PublicKey? = null

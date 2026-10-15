@@ -66,17 +66,6 @@ object DHRatchet {
                 }
             }
 
-            // ** temporary workaround. Later we can ensure non-null **
-            if (copyOfLocalEphemeralPrivateKey == null) {
-                val newKeypair = MADH.generateKeypair()
-                copyOfLocalEphemeralPrivateKey = newKeypair.privateKey.bytes
-
-//                copyOfLocalLongtermKeypair!!.use { peek ->
-//                    copyOfLocalEphemeralPrivateKey = peek.privateKey.bytes.copyOf()
-//                }
-            }
-            // ** end temporary crutch **
-
             require(copyOfLocalEphemeralPrivateKey != null) { "No copy available of local ECDHE private key" }
             require(copyOfRemotePublicKey != null) { "No copy of remote public key" }
             require(copyOfSessionId != null) { "No copy of session ID" }
