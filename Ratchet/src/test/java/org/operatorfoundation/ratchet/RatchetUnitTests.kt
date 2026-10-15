@@ -60,7 +60,7 @@ class RatchetUnitTests {
                     state.localEphemeralKeypair.use { localEphemeralKeypair ->
                         assertArrayEquals(
                             aliceKeypair.privateKey.bytes,
-                            localEphemeralKeypair.privateKey.bytes
+                            localEphemeralKeypair?.privateKeyBytesForTesting
                         )
                     }
 
@@ -198,7 +198,7 @@ class RatchetUnitTests {
                 state1remoteEphemeralPublic = state1.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
                 state1.localEphemeralKeypair.use { state1LocalEphemeralKeypair ->
-                    state1localPrivateKey = state1LocalEphemeralKeypair.privateKey.bytes.copyOf()
+                    state1localPrivateKey = state1LocalEphemeralKeypair?.privateKeyBytesForTesting
                 }
 
                 // Advance without new keys
@@ -224,7 +224,7 @@ class RatchetUnitTests {
                     state2.localEphemeralKeypair.use { state2Keypair ->
                         assertArrayEquals(
                             state1localPrivateKey,
-                            state2Keypair.privateKey.bytes
+                            state2Keypair?.privateKeyBytesForTesting
                         )
 
                     }

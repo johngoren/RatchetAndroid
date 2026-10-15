@@ -27,8 +27,8 @@ class RatchetState(
     val chainKey: ChainKey? = null,
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
-    val localEphemeralKeypair: SecureKeyPair,
-    val lastKnownRemotePublicEphemeralKey: Curve25519PublicKey,
+    val localEphemeralKeypair: SecureKeyPair? = null,
+    val lastKnownRemotePublicEphemeralKey: Curve25519PublicKey? = null,
     val sessionId: ByteArray = ByteArray(16),
     var counterLastReceivedKeyNum: Int = 0,
     var counterLastSentKeyNum: Int = 0
@@ -40,8 +40,8 @@ class RatchetState(
         chainKey: ChainKey? = this.chainKey,
         sharedKey: SharedKey? = this.sharedKey,
         messageKey: MessageKey? = this.messageKey,
-        localEphemeralKeypair: SecureKeyPair = this.localEphemeralKeypair,
-        remoteEphemeralPublicKey: Curve25519PublicKey = this.lastKnownRemotePublicEphemeralKey): RatchetState
+        localEphemeralKeypair: SecureKeyPair? = this.localEphemeralKeypair,
+        remoteEphemeralPublicKey: Curve25519PublicKey? = this.lastKnownRemotePublicEphemeralKey): RatchetState
     {
         val copyOfRootKey = RootKey(rootKey.bytes.copyOf())
         val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes.copyOf()) } else { null }
@@ -50,7 +50,7 @@ class RatchetState(
 
         var copyOfLocalEphemeralKeypair: SecureKeyPair? = null
 
-        localEphemeralKeypair.use { localKeypair ->
+        localEphemeralKeypair?.use { localKeypair ->
             val tempCopyOfLocalEphemeralKeypair = Curve25519KeyPair(
                 Curve25519PublicKey(localKeypair.publicKey.bytes.copyOf()),
                 Curve25519PrivateKey(localKeypair.privateKey.bytes.copyOf())
@@ -59,7 +59,10 @@ class RatchetState(
         }
         require(copyOfLocalEphemeralKeypair != null) { throw Exception("Missing local ephemeral keypair") }
 
-        val copyOfRemoteEphemeralPublicKey = Curve25519PublicKey(remoteEphemeralPublicKey.bytes.copyOf())
+        var copyOfRemoteEphemeralPublicKey: Curve25519PublicKey? = null
+        remoteEphemeralPublicKey?.also {
+            copyOfRemoteEphemeralPublicKey = Curve25519PublicKey(it.bytes)
+        }
         return RatchetState( copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey, sessionId)
     }
 
