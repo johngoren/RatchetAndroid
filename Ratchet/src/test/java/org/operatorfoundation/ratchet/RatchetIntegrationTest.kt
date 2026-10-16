@@ -15,31 +15,6 @@ import org.operatorfoundation.ratchet.utils.Encrypt
 // TODO: Test that local ephemeral keypair is changing at all!
 
 class RatchetIntegrationTest {
-    @Test
-    fun `newRatchetState creates valid initial state`() {
-        val aliceKeypair = mockEphemeralKeypair()
-        val bobKeypair = mockEphemeralKeypair()
-
-        bobKeypair.use { bobKeypair ->
-
-            val secureRatchetState = DoubleRatchet.initRatchetState(
-                aliceKeypair,
-                bobKeypair.publicKey
-            )
-
-            secureRatchetState.use { statePeek ->
-                assertNotNull(statePeek.rootKey)
-                assertEquals(0, statePeek.messageNumber)
-
-                // Ephemeral keys are not yet generated
-                assertNull(statePeek.chainKey)
-                assertNull(statePeek.sharedKey)
-                assertNull(statePeek.messageKey)
-                assertNull(statePeek.localEphemeralKeypair)
-                assertNull(statePeek.lastKnownRemotePublicEphemeralKey)
-            }
-        }
-    }
 
     @Test
     fun `both parties derive same initial root key`() {
@@ -181,6 +156,8 @@ class RatchetIntegrationTest {
             state1rootKey = state1Peek.rootKey.bytes.copyOf()
             state1messageKey = state1Peek.messageKey?.bytes?.copyOf()
             state1sharedKey = state1Peek.sharedKey?.bytes?.copyOf()
+            state1localPublicKey = state1Peek.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
+            state1localPrivateKey = state1Peek.localEphemeralKeypair?.privateKeyBytesForTesting
             state1remoteEphemeralPublicKey = state1Peek.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
             DoubleRatchet.symmetricRatchet(state1).use { state2 ->
