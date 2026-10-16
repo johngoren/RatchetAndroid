@@ -67,11 +67,11 @@ class RatchetState(
     }
 
     fun close() {
-        rootKey.close()
-        chainKey?.close()
-        sharedKey?.close()
-        messageKey?.close()
-        localEphemeralKeypair?.close()
-        lastKnownRemotePublicEphemeralKey?.bytes?.fill(0)
+//        rootKey.close()
+//        chainKey?.close()
+//        sharedKey?.close()
+//        messageKey?.close()
+//        localEphemeralKeypair?.close()
+//        lastKnownRemotePublicEphemeralKey?.bytes?.fill(0)
     }
 }

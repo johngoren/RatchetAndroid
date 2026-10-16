@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.ratchets
 
+import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
@@ -72,7 +73,7 @@ object DHRatchet {
             require(messageNum != null) { "No copy of message number " }
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
-            sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey!!.copyOf()), copyOfRemotePublicKey)
+            sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey.copyOf()), copyOfRemotePublicKey)
             val newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys:
@@ -101,8 +102,8 @@ object DHRatchet {
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
-                localEphemeralKeypair = localEphemeralKeypair.copyOf(),  // TODO: Check this!! And which one ends up in result!!
-                lastKnownRemotePublicEphemeralKey = remotePublicKey.copy(),
+                localEphemeralKeypair = localEphemeralKeypair.copyOf(),
+                lastKnownRemotePublicEphemeralKey = Curve25519PublicKey(copyOfRemotePublicKey.bytes.copyOf()),
 
                 counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
             )
@@ -111,13 +112,13 @@ object DHRatchet {
         catch(e: Exception) {
             throw e
         } finally {
-            copyOfOldRootKey?.bytes?.fill(0)
-            copyOfRemotePublicKey?.bytes?.fill(0)
-            copyOfLocalEphemeralPrivateKey?.fill(0)
-            sharedSecret?.bytes?.fill(0)
-            hkdfOutput?.fill(0)
-            hmacOutput?.fill(0)
-            oldState.close()
+//            copyOfOldRootKey?.bytes?.fill(0)
+//            copyOfRemotePublicKey?.bytes?.fill(0)
+//            copyOfLocalEphemeralPrivateKey?.fill(0)
+//            sharedSecret?.bytes?.fill(0)
+//            hkdfOutput?.fill(0)
+//            hmacOutput?.fill(0)
+//            oldState.close()
         }
     }
 

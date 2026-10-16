@@ -101,12 +101,12 @@ object DoubleRatchet
             throw RedoHandshakeException(e.message ?: "Something went wrong in initialization")
         }
         finally {
-            copyOfInitialLocalKeypair.close()
-            copyOfInitialRemotePublicKey.bytes.fill(0)
-            copyOfInitialLocalPrivateKey?.close()
-            copyOfSessionId.fill(0)
-            initialSharedSecret?.close()
-            hkdfOutput?.fill(0)
+//            copyOfInitialLocalKeypair.close()
+//            copyOfInitialRemotePublicKey.bytes.fill(0)
+//            copyOfInitialLocalPrivateKey?.close()
+//            copyOfSessionId.fill(0)
+//            initialSharedSecret?.close()
+//            hkdfOutput?.fill(0)
         }
     }
 

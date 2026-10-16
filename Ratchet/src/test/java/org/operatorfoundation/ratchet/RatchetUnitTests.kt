@@ -192,6 +192,8 @@ class RatchetUnitTests {
             )
 
             secureState1.use { state1 ->
+                assertTrue(state1.localEphemeralKeypair?.isDestroyed == false)
+
                 state1rootKey = state1.rootKey.bytes.copyOf()
                 state1chainKey = state1.chainKey?.bytes?.copyOf()
                 state1messageKey = state1.messageKey?.bytes?.copyOf()
@@ -199,9 +201,7 @@ class RatchetUnitTests {
                 state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
                 state1remoteEphemeralPublic = state1.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
 
-                state1.localEphemeralKeypair.use { state1LocalEphemeralKeypair ->
-                    state1localPrivateKey = state1LocalEphemeralKeypair?.privateKeyBytesForTesting
-                }
+                state1localPrivateKey = state1.localEphemeralKeypair?.privateKeyBytesForTesting
 
                 // Advance without new keys
                 DoubleRatchet.symmetricRatchet(secureState1).use { state2 ->

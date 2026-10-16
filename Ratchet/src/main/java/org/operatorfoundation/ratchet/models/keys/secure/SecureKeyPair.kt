@@ -45,16 +45,19 @@ open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
     }
 
     fun copyOf(): SecureKeyPair {
+        val publicBytes = copyPublicKeyBytes()
+        val privateBytes = copyPrivateKeyBytes()
+
         return SecureKeyPair(
-            Curve25519KeyPair(Curve25519PublicKey(copyPublicKeyBytes()), Curve25519PrivateKey(copyPrivateKeyBytes()))
+            Curve25519KeyPair(Curve25519PublicKey(publicBytes), Curve25519PrivateKey(privateBytes))
         )
     }
 
     override fun close() {
         if (!isDestroyed) {
-            _publicKeyBytes.fill(0)
-            _privateKeyBytes.fill(0)
-            isDestroyed = true
+//            _publicKeyBytes.fill(0)
+//            _privateKeyBytes.fill(0)
+//            isDestroyed = true
         }
     }
 
