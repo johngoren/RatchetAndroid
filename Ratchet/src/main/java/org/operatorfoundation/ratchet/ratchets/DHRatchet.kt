@@ -112,13 +112,13 @@ object DHRatchet {
         catch(e: Exception) {
             throw e
         } finally {
-//            copyOfOldRootKey?.bytes?.fill(0)
-//            copyOfRemotePublicKey?.bytes?.fill(0)
-//            copyOfLocalEphemeralPrivateKey?.fill(0)
-//            sharedSecret?.bytes?.fill(0)
-//            hkdfOutput?.fill(0)
-//            hmacOutput?.fill(0)
-//            oldState.close()
+            copyOfOldRootKey?.bytes?.fill(0)
+            copyOfRemotePublicKey?.bytes?.fill(0)
+            copyOfLocalEphemeralPrivateKey?.fill(0)
+            sharedSecret?.bytes?.fill(0)
+            hkdfOutput?.fill(0)
+            hmacOutput?.fill(0)
+            oldState.close()
         }
     }
 

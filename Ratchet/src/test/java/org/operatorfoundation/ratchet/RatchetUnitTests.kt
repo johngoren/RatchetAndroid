@@ -44,12 +44,12 @@ class RatchetUnitTests {
 
         aliceSecureKeypair.use { aliceKeypair ->
             bobKeypair.use { bobKeypair ->
-                val singleUseRatchetState = DoubleRatchet.initRatchetState(
+                val newRatchetState = DoubleRatchet.initRatchetState(
                     aliceSecureKeypair,
                     bobKeypair.publicKey
                 )
 
-                singleUseRatchetState.use { state ->
+                newRatchetState.use { state ->
 
                     // Initial state should have ephemeral keys and root key
                     assertNotNull(state.rootKey)
@@ -71,13 +71,13 @@ class RatchetUnitTests {
                         state.lastKnownRemotePublicEphemeralKey?.bytes
                     )
 
-                    // Ephemeral state should be null/default
+                    // Ephemeral state should be default
                     assertEquals(0, state.messageNumber)
                     assertNull(state.chainKey)
                     assertNull(state.sharedKey)
                     assertNull(state.messageKey)
-                    assertNull(state.localEphemeralKeypair)
-                    assertNull(state.lastKnownRemotePublicEphemeralKey)
+                    assertTrue(state.localEphemeralKeypair?.privateKeyBytesForTesting.contentEquals(aliceSecureKeypair.privateKeyBytesForTesting))
+                    assertTrue(state.lastKnownRemotePublicEphemeralKey?.bytes.contentEquals(bobKeypair.publicKey.bytes))
                 }
             }
         }
