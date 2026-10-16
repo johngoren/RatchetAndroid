@@ -1,9 +1,9 @@
-package org.operatorfoundation.ratchet.models.keys.restriction
+package org.operatorfoundation.ratchet.models.keys.secure
 
 import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.ratchet.DoubleRatchet
 
-open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
+open class SecureKey(keyBytes: ByteArray): AutoCloseable {
     var isDestroyed: Boolean = false
 
     private val _keyBytes: ByteArray
@@ -43,8 +43,7 @@ open class SecureKey(private val keyBytes: ByteArray): AutoCloseable {
     }
 
     override fun toString(): String {
-        return "Symmetric key" +
-                " redacted for security"
+        return "Symmetric key" + if (isDestroyed) " ***destroyed*** " else " redacted for security"
     }
 
     override fun equals(other: Any?): Boolean

@@ -8,6 +8,8 @@ import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.utils.Decrypt
+import org.operatorfoundation.ratchet.utils.Encrypt
 
 
 // TODO: Test that local ephemeral keypair is changing at all!
@@ -89,7 +91,7 @@ class RatchetIntegrationTest {
 
             secureInitialState.use { initialState ->
                 val result = DoubleRatchet.ratchetForSend(secureInitialState)
-                assertNotNull(result.outgoingEphemeralPublicKey)
+                assertNotNull(result.newEphemeralPublicKey)
 
                 result.state.use { newState ->
 
@@ -234,8 +236,8 @@ class RatchetIntegrationTest {
                         bytes = "Hello, World!".toByteArray()
                     )
 
-                    val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, originalMessage)
-                    val decryptedMessage = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
+                    val ciphertext = Encrypt.perform(state.messageKey!!, originalMessage)
+                    val decryptedMessage = Decrypt.perform(state.messageKey!!, ciphertext)
 
                     assertEquals(originalMessage.type, decryptedMessage!!.type)
                     assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
@@ -272,9 +274,9 @@ class RatchetIntegrationTest {
 
                     currentState.use { currentStatePeek ->
                         val ciphertext =
-                            DoubleRatchet.encrypt(currentStatePeek.messageKey!!, plaintext)
+                            Encrypt.perform(currentStatePeek.messageKey!!, plaintext)
                         val decrypted =
-                            DoubleRatchet.decrypt(currentStatePeek.messageKey!!, ciphertext)
+                            Decrypt.perform(currentStatePeek.messageKey!!, ciphertext)
 
                         assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
@@ -311,8 +313,8 @@ class RatchetIntegrationTest {
                     PlaintextMessageType.UNCOMPRESSED_TEXT,
                     "Hello Bob".toByteArray()
                 )
-                val ciphertext1 = DoubleRatchet.encrypt(aliceState.messageKey!!, message1)
-                val decrypted1 = DoubleRatchet.decrypt(aliceState.messageKey!!, ciphertext1)
+                val ciphertext1 = Encrypt.perform(aliceState.messageKey!!, message1)
+                val decrypted1 = Decrypt.perform(aliceState.messageKey!!, ciphertext1)
                 assertArrayEquals(message1.bytes, decrypted1!!.bytes)
 
                 DoubleRatchet.symmetricRatchet(result.state).use { newState ->
@@ -321,8 +323,8 @@ class RatchetIntegrationTest {
                         PlaintextMessageType.UNCOMPRESSED_TEXT,
                         "Hello again".toByteArray()
                     )
-                    val ciphertext2 = DoubleRatchet.encrypt(newState.messageKey!!, message2)
-                    val decrypted2 = DoubleRatchet.decrypt(newState.messageKey!!, ciphertext2)
+                    val ciphertext2 = Encrypt.perform(newState.messageKey!!, message2)
+                    val decrypted2 = Decrypt.perform(newState.messageKey!!, ciphertext2)
                     assertArrayEquals(message2.bytes, decrypted2!!.bytes)
                 }
             }
@@ -358,7 +360,7 @@ class RatchetIntegrationTest {
                         assertFalse(state1Peek.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
 
                         // The ephemeral keys should be different
-                        assertFalse(result1.outgoingEphemeralPublicKey.bytes.contentEquals(result2.outgoingEphemeralPublicKey.bytes))
+                        assertFalse(result1.newEphemeralPublicKey.bytes.contentEquals(result2.newEphemeralPublicKey.bytes))
                     }
                 }
             }
@@ -385,11 +387,11 @@ class RatchetIntegrationTest {
                     bytes = "Same message".toByteArray()
                 )
 
-                val ciphertext1 = DoubleRatchet.encrypt(statePeek.messageKey!!, message)
+                val ciphertext1 = Encrypt.perform(statePeek.messageKey!!, message)
 
                 // Advance ratchet to get new message key
                 DoubleRatchet.symmetricRatchet(result.state).use { newState ->
-                    val ciphertext2 = DoubleRatchet.encrypt(newState.messageKey!!, message)
+                    val ciphertext2 = Encrypt.perform(newState.messageKey!!, message)
 
                     // Same plaintext with different keys should produce different ciphertexts
                     assertFalse(ciphertext1.encrypted.contentEquals(ciphertext2.encrypted))
@@ -426,8 +428,8 @@ class RatchetIntegrationTest {
 
                 for (messageType in messageTypes) {
                     val message = PlaintextMessage(messageType, "test".toByteArray())
-                    val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, message)
-                    val decrypted = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
+                    val ciphertext = Encrypt.perform(state.messageKey!!, message)
+                    val decrypted = Decrypt.perform(state.messageKey!!, ciphertext)
 
                     assertEquals(messageType, decrypted!!.type)
                     assertArrayEquals("test".toByteArray(), decrypted!!.bytes)
@@ -500,11 +502,11 @@ class RatchetIntegrationTest {
                     )
 
                     // Encrypt with state1's key
-                    val ciphertext = DoubleRatchet.encrypt(state1messageKey, message)
+                    val ciphertext = Encrypt.perform(state1messageKey, message)
 
                     // Try to decrypt with state2's key (should fail)
                     try {
-                        DoubleRatchet.decrypt(state2.messageKey!!, ciphertext)
+                        Decrypt.perform(state2.messageKey!!, ciphertext)
                         fail("Should have thrown SecurityException")
                     } catch (e: SecurityException) {
                         assertTrue(e.message!!.contains("Authentication"))

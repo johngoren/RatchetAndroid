@@ -8,6 +8,8 @@ import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.utils.Decrypt
+import org.operatorfoundation.ratchet.utils.Encrypt
 
 
 class RatchetUnitTests {
@@ -100,7 +102,7 @@ class RatchetUnitTests {
                     assertNotNull(ratchetedState.chainKey)
                     assertNotNull(ratchetedState.sharedKey)
                     assertNotNull(ratchetedState.messageKey)
-                    assertNotNull(result.outgoingEphemeralPublicKey)
+                    assertNotNull(result.newEphemeralPublicKey)
 
                     // Message number should increment
                     assertEquals(1, ratchetedState.messageNumber)
@@ -112,7 +114,7 @@ class RatchetUnitTests {
                     assertEquals(32, ratchetedState.chainKey!!.bytes.size)
                     assertEquals(32, ratchetedState.sharedKey!!.bytes.size)
                     assertEquals(32, ratchetedState.messageKey!!.bytes.size)
-                    assertEquals(32, result.outgoingEphemeralPublicKey.bytes.size)
+                    assertEquals(32, result.newEphemeralPublicKey.bytes.size)
                 }
             }
         }
@@ -328,10 +330,10 @@ class RatchetUnitTests {
                             )
 
                             // Encrypt
-                            val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, originalMessage)
+                            val ciphertext = Encrypt.perform(state.messageKey!!, originalMessage)
 
                             // Decrypt with same key
-                            val decryptedMessage = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
+                            val decryptedMessage = Decrypt.perform(state.messageKey!!, ciphertext)
 
                             assertEquals(originalMessage.type, decryptedMessage!!.type)
                             assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
@@ -361,8 +363,8 @@ class RatchetUnitTests {
                             "Same message".toByteArray()
                         )
 
-                        val ciphertext1 = DoubleRatchet.encrypt(state.messageKey!!, message)
-                        val ciphertext2 = DoubleRatchet.encrypt(state.messageKey!!, message)
+                        val ciphertext1 = Encrypt.perform(state.messageKey!!, message)
+                        val ciphertext2 = Encrypt.perform(state.messageKey!!, message)
 
                         // Different nonces mean different ciphertexts
                         assertFalse(ciphertext1.nonce.bytes.contentEquals(ciphertext2.nonce.bytes))
@@ -396,12 +398,12 @@ class RatchetUnitTests {
                         )
 
                         // Encrypt with state1's key
-                        val ciphertext = DoubleRatchet.encrypt(state1.messageKey!!, message)
+                        val ciphertext = Encrypt.perform(state1.messageKey!!, message)
 
                         // Try to decrypt with state2's key (should fail)
                         try {
                             state2.use { state2peek ->
-                                DoubleRatchet.decrypt(state2peek.messageKey!!, ciphertext)
+                                Decrypt.perform(state2peek.messageKey!!, ciphertext)
                                 fail("Should have thrown SecurityException")
                             }
                         } catch (e: SecurityException) {
@@ -436,10 +438,10 @@ class RatchetUnitTests {
                             PlaintextMessageType.DATA,
                             "Hello!".toByteArray()
                         )
-                        val ciphertext = DoubleRatchet.encrypt(state.messageKey!!, message)
+                        val ciphertext = Encrypt.perform(state.messageKey!!, message)
 
                         // Alice can decrypt with the same key
-                        val decrypted = DoubleRatchet.decrypt(state.messageKey!!, ciphertext)
+                        val decrypted = Decrypt.perform(state.messageKey!!, ciphertext)
 
                         assertEquals(PlaintextMessageType.DATA, decrypted!!.type)
                         assertEquals("Hello!", String(decrypted!!.bytes))
@@ -476,7 +478,7 @@ class RatchetUnitTests {
                             PlaintextMessageType.DATA,
                             "Message 1".toByteArray()
                         )
-                    val ciphertext1 = DoubleRatchet.encrypt(aliceState1peek.messageKey!!, message1)
+                    val ciphertext1 = Encrypt.perform(aliceState1peek.messageKey!!, message1)
                     alice1messageKey = MessageKey(aliceState1peek.messageKey.bytes)
 
                     // Alice advances her ratchet for message 2
@@ -490,20 +492,20 @@ class RatchetUnitTests {
                     aliceState2.use { aliceState2peek ->
 
                         val ciphertext2 =
-                            DoubleRatchet.encrypt(aliceState2peek.messageKey!!, message2)
+                            Encrypt.perform(aliceState2peek.messageKey!!, message2)
 
                         // Both messages can be decrypted with their respective keys
                         val decrypted1 =
-                            DoubleRatchet.decrypt(alice1messageKey!!, ciphertext1)
+                            Decrypt.perform(alice1messageKey!!, ciphertext1)
                         val decrypted2 =
-                            DoubleRatchet.decrypt(aliceState2peek.messageKey!!, ciphertext2)
+                            Decrypt.perform(aliceState2peek.messageKey!!, ciphertext2)
 
                         assertEquals("Message 1", String(decrypted1!!.bytes))
                         assertEquals("Message 2", String(decrypted2!!.bytes))
 
                         // Verify messages can't be decrypted with wrong keys
                         try {
-                            DoubleRatchet.decrypt(aliceState2peek.messageKey!!, ciphertext1)
+                            Decrypt.perform(aliceState2peek.messageKey!!, ciphertext1)
                             fail("Should not decrypt with wrong key")
                         } catch (e: SecurityException) {
                             // Expected - demonstrates forward secrecy

@@ -24,15 +24,15 @@ object SymmetricRatchet {
         var messageHmacOutput: ByteArray? = null
 
         return try {
-            oldState.use { oldState ->
+            oldState.use { oldStatePeek ->
 
                 // Ensure we have a chain key to work with
-                requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewEntropy first." }
+                requireNotNull(oldStatePeek.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewEntropy first." }
 
-                copyOfOldChainKey = oldState.chainKey.bytes.copyOf()
+                copyOfOldChainKey = oldStatePeek.chainKey.bytes.copyOf()
 
                 // Increment message number
-                val newMessageNumber = oldState.messageNumber + 1
+                val newMessageNumber = oldStatePeek.messageNumber + 1
 
                 // Derive new chain key: C_n = HMAC(C_{n-1}, n)
                 chainHmacOutput = HMAC.perform(
@@ -47,7 +47,7 @@ object SymmetricRatchet {
                     data=newMessageNumber.toString().toByteArray()
                 )
 
-                val newState = oldState.copy(
+                val newState = oldStatePeek.copy(
                     messageNumber = newMessageNumber,
                     chainKey = newChainKey,
                     messageKey = MessageKey.fromHMAC(messageHmacOutput)

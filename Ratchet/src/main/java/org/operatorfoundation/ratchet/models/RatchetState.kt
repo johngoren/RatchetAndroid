@@ -7,7 +7,7 @@ import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.SharedKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
 
 // TODO: Does this need Autocloseable if it's passed around in a secure autocloseable container class?
 

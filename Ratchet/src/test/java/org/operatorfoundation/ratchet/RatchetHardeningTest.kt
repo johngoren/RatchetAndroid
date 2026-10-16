@@ -5,6 +5,8 @@ import org.junit.Test
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.utils.Decrypt
+import org.operatorfoundation.ratchet.utils.Encrypt
 
 class RatchetHardeningTest {
 
@@ -29,14 +31,14 @@ class RatchetHardeningTest {
         // Bob ratchets and sends the first message
         val bobRatchetsResult = DoubleRatchet.ratchetForSend(initialStateBob)
         val bobState1 = bobRatchetsResult.state
-        firstBobEphemeralPublicKey = bobRatchetsResult.outgoingEphemeralPublicKey
+        firstBobEphemeralPublicKey = bobRatchetsResult.newEphemeralPublicKey
 
         val originalMessage = TestUtils.mockPlaintext()
         var messageKeyBob1: MessageKey? = null
         bobState1.use { statePeek ->
             messageKeyBob1 = statePeek.messageKey
         }
-        val ciphertext1 = DoubleRatchet.encrypt(messageKeyBob1!!, originalMessage)
+        val ciphertext1 = Encrypt.perform(messageKeyBob1!!, originalMessage)
 
         // This ciphertext is then sent over to the wire. Alice receives and decrypts it OK. So far so good
 
@@ -46,7 +48,7 @@ class RatchetHardeningTest {
             messageKeyAlice1 = alice1StatePeek.messageKey
         }
 
-        val aliceSuccessfullyDecrypts = DoubleRatchet.decrypt(messageKeyAlice1!!, ciphertext1)
+        val aliceSuccessfullyDecrypts = Decrypt.perform(messageKeyAlice1!!, ciphertext1)
         assertArrayEquals(originalMessage.bytes, aliceSuccessfullyDecrypts!!.bytes)
 
         reusedBobPublicKey = firstBobEphemeralPublicKey
@@ -57,7 +59,7 @@ class RatchetHardeningTest {
         bobState2.use { statePeek ->
             messageKeyBob2 = statePeek.messageKey
         }
-        val ciphertext2 = DoubleRatchet.encrypt(messageKeyBob2!!, originalMessage)
+        val ciphertext2 = Encrypt.perform(messageKeyBob2!!, originalMessage)
 
         // Alice receives this but with the old public key.
 
@@ -68,7 +70,7 @@ class RatchetHardeningTest {
         }
 
         try {
-            val aliceCantDecrypt = DoubleRatchet.decrypt(messageKeyAlice2!!, ciphertext2)
+            val aliceCantDecrypt = Decrypt.perform(messageKeyAlice2!!, ciphertext2)
         }
         catch(e: Exception) {
             // TODO: Test for failure here

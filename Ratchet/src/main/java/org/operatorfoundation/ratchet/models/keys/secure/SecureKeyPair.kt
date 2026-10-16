@@ -1,4 +1,4 @@
-package org.operatorfoundation.ratchet.models.keys.restriction
+package org.operatorfoundation.ratchet.models.keys.secure
 
 import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.madh.Curve25519KeyPair
@@ -59,8 +59,7 @@ open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
     }
 
     override fun toString(): String {
-        return "Symmetric key" +
-                " redacted for security"
+        return "Keypair" + if (isDestroyed) " ***destroyed*** " else " redacted for security"
     }
 
     override fun equals(other: Any?): Boolean

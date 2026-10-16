@@ -1,7 +1,6 @@
 package org.operatorfoundation.ratchet.ratchets
 
 import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
@@ -11,8 +10,8 @@ import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.SharedKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKey
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
+import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
 import org.operatorfoundation.ratchet.utils.ContextField
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
@@ -102,8 +101,8 @@ object DHRatchet {
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = messageKey,
-                localEphemeralKeypair = localEphemeralKeypair,  // TODO: Check this!! And which one ends up in result!!
-                lastKnownRemotePublicEphemeralKey = remotePublicKey,
+                localEphemeralKeypair = localEphemeralKeypair.copyOf(),  // TODO: Check this!! And which one ends up in result!!
+                lastKnownRemotePublicEphemeralKey = remotePublicKey.copy(),
 
                 counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
             )

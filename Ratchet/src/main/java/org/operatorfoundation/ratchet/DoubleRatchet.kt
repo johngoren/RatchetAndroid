@@ -11,7 +11,7 @@ import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.Secret
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
 import org.operatorfoundation.ratchet.ratchets.DHRatchet
 import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
 import org.operatorfoundation.ratchet.utils.ContextField
@@ -37,7 +37,7 @@ object DoubleRatchet
 
     class RatchetSendResult(
         val state: SecureRatchetState,
-        val outgoingEphemeralPublicKey: Curve25519PublicKey,
+        val newEphemeralPublicKey: Curve25519PublicKey
     )
 
     // ========== Creating a new ratchet state ==========
@@ -65,6 +65,7 @@ object DoubleRatchet
         val copyOfInitialRemotePublicKey = Curve25519PublicKey(initialRemotePublicKey.bytes.copyOf())
         var copyOfInitialLocalPrivateKey: PrivateKey? = null
         val copyOfSessionId = sessionId.copyOf()
+
         var hkdfOutput: ByteArray? = null
         var initialSharedSecret: Secret? = null
         var newState: RatchetState? = null
@@ -86,10 +87,10 @@ object DoubleRatchet
 
                 // Return initial state with defaults for optional fields
                 newState = RatchetState(
-                    rootKey = RootKey.fromHKDF(hkdfOutput),
+                    rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
                     sessionId = copyOfSessionId.copyOf(),
-                    localEphemeralKeypair = initialLocalKeypair,
-                    lastKnownRemotePublicEphemeralKey = initialRemotePublicKey
+                    localEphemeralKeypair = initialLocalKeypair.copyOf(),
+                    lastKnownRemotePublicEphemeralKey = initialRemotePublicKey.copy()
                 )
                 newRatchetState = SecureRatchetState(newState)
             }
@@ -228,76 +229,6 @@ object DoubleRatchet
             localEphemeralKeypair,
             incomingPublicKey
         )
-    }
-
-
-    // ========== Encrypting and decrypting ==========
-
-    /**
-     * Encrypts a plaintext message using the message key.
-     * Uses AES-GCM for authenticated encryption.
-     *
-     * @param key The message key to use for encryption
-     * @param plaintext The plaintext message to encrypt
-     * @return The ciphertext
-     */
-    fun encrypt(key: MessageKey, plaintext: PlaintextMessage): Ciphertext
-    {
-        var copyOfPlaintextBytes: ByteArray? = null
-        var aesKey: AesGcmKey? = null
-
-        try {
-            // Serialize the plaintext message to bytes
-            copyOfPlaintextBytes = plaintext.toBytes()
-
-            // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
-
-            // Create cipher and encrypt
-            val cipher = org.operatorfoundation.aes.AesCipher()
-            return cipher.encrypt(aesKey, copyOfPlaintextBytes)
-        }
-        catch(e: Exception) {
-            throw e // TODO: Error handling
-        }
-        finally {
-            copyOfPlaintextBytes?.fill(0)
-            aesKey?.bytes?.fill(0)
-        }
-    }
-
-    /**
-     * Decrypts a ciphertext message using the message key.
-     * Uses AES-GCM for authenticated decryption.
-     *
-     * @param key The message key to use for decryption
-     * @param ciphertext The ciphertext to decrypt
-     * @return The decrypted plaintext message
-     */
-    fun decrypt(key: MessageKey, ciphertext: Ciphertext): PlaintextMessage?
-    {
-        var aesKey: AesGcmKey? = null
-        var decryptedBytes: ByteArray? = null
-
-        return try {
-
-            // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
-
-            // Create cipher and decrypt
-            val cipher = org.operatorfoundation.aes.AesCipher()
-            decryptedBytes = cipher.decrypt(aesKey, ciphertext)
-
-            // Deserialize the plaintext message
-            PlaintextMessage.fromBytes(decryptedBytes.copyOf())
-        }
-        catch(e: IllegalArgumentException) {
-            return null
-        }
-        finally {
-            aesKey?.bytes?.fill(0)
-            decryptedBytes?.fill(0)
-        }
     }
 
 

@@ -3,7 +3,7 @@ package org.operatorfoundation.ratchet
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
-import org.operatorfoundation.ratchet.models.keys.restriction.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
 
 object TestUtils {
 
