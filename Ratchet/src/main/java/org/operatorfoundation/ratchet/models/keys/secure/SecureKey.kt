@@ -15,15 +15,8 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
         _keyBytes = keyBytes.copyOf()
     }
 
-    @VisibleForTesting
-    val bytes: ByteArray
-        get() {
-            check(!isDestroyed) { "Key has been destroyed "}
-            return _keyBytes.copyOf()
-        }
 
-
-    fun use(block: (ByteArray)->Unit) {
+    fun consume(block: (ByteArray)->Unit) {
         check(!isDestroyed) { "Key has been destroyed "}
         if (!isDestroyed) {
             block(_keyBytes)
@@ -55,5 +48,12 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
     {
         throw SecurityException("Hash codes have been disabled for security")
     }
+
+    @VisibleForTesting
+    val bytesForTesting: ByteArray
+        get() {
+            check(!isDestroyed) { "Key has been destroyed "}
+            return _keyBytes.copyOf()
+        }
 
 }

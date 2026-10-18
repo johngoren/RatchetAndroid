@@ -5,8 +5,9 @@ import org.junit.Assert.*
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
-import org.operatorfoundation.ratchet.models.SecureRatchetState
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
+import org.operatorfoundation.ratchet.models.RatchetState
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.Encrypt
@@ -21,28 +22,28 @@ class RatchetIntegrationTest {
         val aliceSecureKeypair = mockEphemeralKeypair()
         val bobSecureKeypair = mockEphemeralKeypair()
 
-        aliceSecureKeypair.use { aliceKeypair ->
+        aliceSecureKeypair.consume { alicePublicKey, alicePrivateKey ->
 
-            bobSecureKeypair.use { bobKeypair ->
+            bobSecureKeypair.consume { bobPublicKey, bobPrivateKey  ->
 
                 val aliceSingleUseRatchetState = DoubleRatchet.initRatchetState(
                     aliceSecureKeypair,
-                    bobKeypair.publicKey
+                    bobPublicKey
                 )
 
                 val bobSingleUseRatchetState = DoubleRatchet.initRatchetState(
                     bobSecureKeypair,
-                    aliceKeypair.publicKey
+                    alicePublicKey
                 )
 
                 var aliceRootKey: ByteArray? = null
                 var bobRootKey: ByteArray? = null
 
                 aliceSingleUseRatchetState.use { aliceState ->
-                    aliceRootKey = aliceState.rootKey.bytes
+                    aliceRootKey = aliceState.rootKey.bytesForTesting
 
                     bobSingleUseRatchetState.use { bobState ->
-                        bobRootKey = bobState.rootKey.bytes
+                        bobRootKey = bobState.rootKey.bytesForTesting
 
                         // Both should derive the same root key (ECDH is commutative)
                         assertArrayEquals(aliceRootKey!!, bobRootKey!!)
@@ -57,30 +58,31 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
-            secureInitialState.use { initialState ->
-                val result = DoubleRatchet.ratchetForSend(secureInitialState)
-                assertNotNull(result.newEphemeralPublicKey)
+            secureInitialState.use { state0 ->
+                val copyOfState0RootKey = state0.rootKey.bytesForTesting.copyOf()
+                val state1Result = DoubleRatchet.ratchetForSend(secureInitialState)
+                assertNotNull(state1Result.newEphemeralPublicKey)
 
-                result.state.use { newState ->
+                state1Result.state.use { state1 ->
 
                     // Root key should change
-                    assertFalse(initialState.rootKey.bytes.contentEquals(newState.rootKey.bytes))
+                    assertFalse(copyOfState0RootKey.contentEquals(state1.rootKey.bytesForTesting))
 
                     // All keys should be created after DH ratchet
-                    assertNotNull(newState.chainKey)
-                    assertNotNull(newState.sharedKey)
-                    assertNotNull(newState.messageKey)
+                    assertNotNull(state1.chainKey)
+                    assertNotNull(state1.sharedKey)
+                    assertNotNull(state1.messageKey)
 
 
                     // Message number should increment
-                    assertEquals(1, newState.messageNumber)
+                    assertEquals(1, state1.messageNumber)
                 }
 
             }
@@ -94,17 +96,17 @@ class RatchetIntegrationTest {
         val bobKeypair = mockEphemeralKeypair()
         var initialStateRootKey: ByteArray? = null
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             secureInitialState.use { initialState ->
 
-                val senderEphemeralKey = MADH.generateKeypair().publicKey
-                initialStateRootKey = initialState.rootKey.bytes
+                val senderEphemeralKey = EphemeralPublicKey(MADH.generateKeypair().publicKey.bytes)
+                initialStateRootKey = initialState.rootKey.bytesForTesting
 
                 DoubleRatchet.ratchetForReceive(secureInitialState, senderEphemeralKey).use { newState ->
 
@@ -113,10 +115,10 @@ class RatchetIntegrationTest {
                     assertNotNull(newState.sharedKey)
                     assertNotNull(newState.messageKey)
 //                    assertNotNull(newState.localEphemeralKeypair)
-                    assertNotNull(newState.lastKnownRemotePublicEphemeralKey)
+                    assertNotNull(newState.remotePublicEphemeralKey)
 
                     // Root key should change
-                    assertFalse(initialStateRootKey.contentEquals(newState.rootKey.bytes))
+                    assertFalse(initialStateRootKey.contentEquals(newState.rootKey.bytesForTesting))
 
                     // Message number should increment
                     assertEquals(1, newState.messageNumber)
@@ -131,12 +133,19 @@ class RatchetIntegrationTest {
     fun `ratchetWithoutNewKey performs symmetric ratchet step`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
-        val incomingEphemeralKey = MADH.generateKeypair().publicKey
+
+        val incomingEphemeralKey = EphemeralPublicKey(MADH.generateKeypair().publicKey.bytes)
+
+        var bobPublicKey: EphemeralPublicKey? = null
+
+        bobKeypair.consume { publicKey, privateKey ->
+            bobPublicKey = publicKey
+        }
 
         // Need to do DH ratchet first to get ephemeral keys
         val initialState = DoubleRatchet.initRatchetState(
             aliceKeypair,
-            bobKeypair.publicKey
+            bobPublicKey!!
         )
 
         val state1 = DoubleRatchet.dhRatchet(
@@ -152,38 +161,40 @@ class RatchetIntegrationTest {
 
         state1.use { state1Peek ->
 
-            state1chainKey = state1Peek.chainKey?.bytes?.copyOf()
-            state1rootKey = state1Peek.rootKey.bytes.copyOf()
-            state1messageKey = state1Peek.messageKey?.bytes?.copyOf()
-            state1sharedKey = state1Peek.sharedKey?.bytes?.copyOf()
-            state1localPublicKey = state1Peek.localEphemeralKeypair?.publicKey?.bytes?.copyOf()
-            state1localPrivateKey = state1Peek.localEphemeralKeypair?.privateKeyBytesForTesting
-            state1remoteEphemeralPublicKey = state1Peek.lastKnownRemotePublicEphemeralKey?.bytes?.copyOf()
+            state1Peek.apply {
+                state1chainKey = chainKey?.bytesForTesting?.copyOf()
+                state1rootKey = rootKey.bytesForTesting.copyOf()
+                state1messageKey = messageKey?.bytesForTesting?.copyOf()
+                state1sharedKey = sharedKey?.bytesForTesting?.copyOf()
+                state1localPublicKey = localEphemeralKeypair?.publicKeyBytesForTesting?.copyOf()
+                state1localPrivateKey = localEphemeralKeypair?.privateKeyBytesForTesting?.copyOf()
+                state1remoteEphemeralPublicKey = remotePublicEphemeralKey?.bytesForTesting?.copyOf()
+            }
 
             DoubleRatchet.symmetricRatchet(state1).use { state2 ->
                 // Chain and message keys should change (symmetric ratchet)
-                assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytes))
-                assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytes))
+                assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytesForTesting))
+                assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytesForTesting))
 
                 // Root key, shared key, and ephemeral keys should remain unchanged
-                assertArrayEquals(state1rootKey, state2.rootKey.bytes)
+                assertArrayEquals(state1rootKey, state2.rootKey.bytesForTesting)
                 assertArrayEquals(
                     state1sharedKey!!,
-                    state2.sharedKey!!.bytes
+                    state2.sharedKey!!.bytesForTesting
                 )
                 assertArrayEquals(
                     state1localPublicKey,
-                    state2.localEphemeralKeypair?.publicKey?.bytes
+                    state2.localEphemeralKeypair?.publicKeyBytesForTesting
                 )
-                state2.localEphemeralKeypair?.use { state2LocalEphemeralKeypair ->
+                state2.localEphemeralKeypair?.consume { state2PublicKey, state2PrivateKey ->
                     assertArrayEquals(
                         state1localPrivateKey,
-                        state2LocalEphemeralKeypair.privateKey.bytes
+                        state2PrivateKey.bytesForTesting
                     )
                 }
                 assertArrayEquals(
                     state1remoteEphemeralPublicKey,
-                    state2.lastKnownRemotePublicEphemeralKey?.bytes
+                    state2.remotePublicEphemeralKey?.bytesForTesting
                 )
 
                 // Message number should increment
@@ -197,11 +208,11 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             secureInitialState.use { initialState ->
@@ -228,11 +239,11 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             secureInitialState.use { initialState ->
@@ -258,8 +269,8 @@ class RatchetIntegrationTest {
                         assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
                         // Advance ratchet for next message
-                        DoubleRatchet.symmetricRatchet(currentState).use { newState ->
-                            currentState = SecureRatchetState(newState)
+                        DoubleRatchet.symmetricRatchet(currentState).use {
+                            currentState = it
                         }
                     }
                 }
@@ -274,11 +285,11 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val aliceSecureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             val result = DoubleRatchet.ratchetForSend(aliceSecureInitialState)
@@ -313,31 +324,32 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             secureInitialState.use { initialState ->
                 // Perform first DH ratchet with ephemeral keys
                 val result1 = DoubleRatchet.ratchetForSend(secureInitialState)
                 val state1 = result1.state
-                state1.use {
+                state1.use{
                     state1Peek ->
                     // Perform second DH ratchet with new ephemeral keys
+
                     val result2 = DoubleRatchet.ratchetForSend(state1)
                     result2.state.use { state2 ->
 
                         // All keys should be completely different (forward secrecy)
-                        assertFalse(state1Peek.rootKey.bytes.contentEquals(state2.rootKey.bytes))
-                        assertFalse(state1Peek.chainKey!!.bytes.contentEquals(state2.chainKey!!.bytes))
-                        assertFalse(state1Peek.messageKey!!.bytes.contentEquals(state2.messageKey!!.bytes))
-                        assertFalse(state1Peek.sharedKey!!.bytes.contentEquals(state2.sharedKey!!.bytes))
+                        assertFalse(state1Peek.rootKey.bytesForTesting.contentEquals(state2.rootKey.bytesForTesting))
+                        assertFalse(state1Peek.chainKey!!.bytesForTesting.contentEquals(state2.chainKey!!.bytesForTesting))
+                        assertFalse(state1Peek.messageKey!!.bytesForTesting.contentEquals(state2.messageKey!!.bytesForTesting))
+                        assertFalse(state1Peek.sharedKey!!.bytesForTesting.contentEquals(state2.sharedKey!!.bytesForTesting))
 
                         // The ephemeral keys should be different
-                        assertFalse(result1.newEphemeralPublicKey.bytes.contentEquals(result2.newEphemeralPublicKey.bytes))
+                        assertFalse(result1.newEphemeralPublicKey.bytesForTesting.contentEquals(result2.newEphemeralPublicKey.bytesForTesting))
                     }
                 }
             }
@@ -349,10 +361,10 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             val result = DoubleRatchet.ratchetForSend(secureInitialState)
@@ -383,11 +395,11 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
 
@@ -420,11 +432,11 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             secureInitialState.use { initialState ->
@@ -434,16 +446,16 @@ class RatchetIntegrationTest {
                 // DH ratchet increments to 1
                 val result = DoubleRatchet.ratchetForSend(secureInitialState)
 
-                result.state.use { state ->
-                    assertEquals(1, state.messageNumber)
+                result.state.use {
+                    assertEquals(1, it.messageNumber)
 
-                    var currentState = SecureRatchetState(state)
+                    var currentState = it
 
                     // Symmetric ratchets increment by 1 each
                     for (i in 2..10) {
-                        DoubleRatchet.symmetricRatchet(currentState).use { newState ->
-                            assertEquals(i, newState.messageNumber)
-                            currentState = SecureRatchetState(newState.copy())
+                        DoubleRatchet.symmetricRatchet(currentState).use {
+                            assertEquals(i, it.messageNumber)
+                            currentState = RatchetState(it)
                         }
                     }
                 }
@@ -458,11 +470,11 @@ class RatchetIntegrationTest {
 
         var state1messageKey: MessageKey
 
-        bobKeypair.use { bobKeypair ->
+        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(
                 aliceKeypair,
-                bobKeypair.publicKey
+                bobPublicKey
             )
 
             val result = DoubleRatchet.ratchetForSend(secureInitialState)
@@ -470,7 +482,7 @@ class RatchetIntegrationTest {
 
             state1.use { state1Peek ->
 
-                state1messageKey = MessageKey(state1Peek.messageKey?.bytes!!)
+                state1messageKey = MessageKey(state1Peek.messageKey?.bytesForTesting!!)
 
                 DoubleRatchet.symmetricRatchet(state1).use { state2 ->
                     val message = PlaintextMessage(
@@ -492,5 +504,4 @@ class RatchetIntegrationTest {
             }
         }
     }
-
 }

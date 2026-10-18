@@ -2,6 +2,7 @@ package org.operatorfoundation.ratchet.utils
 
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 
@@ -12,13 +13,16 @@ object ECDH {
      *
      * TODO: Per report, must also handle error state
      */
-    fun perform(privateKey: PrivateKey, publicKey: Curve25519PublicKey): Secret
+    fun perform(privateKey: PrivateKey, publicKey: EphemeralPublicKey): Secret
     {
         var copyOfPrivateKeyBytes: ByteArray? = null
-        val publicKeyBytes = publicKey.bytes.copyOf()
+        var copyOfPublicKeyBytes: ByteArray? = null
 
-        privateKey.use { privateKeyPeek ->
-            copyOfPrivateKeyBytes = privateKeyPeek.copyOf()
+        publicKey.consume {
+            copyOfPublicKeyBytes = it.copyOf()
+        }
+        privateKey.consume {
+            copyOfPrivateKeyBytes = it.copyOf()
         }
 
         try {
@@ -26,14 +30,14 @@ object ECDH {
 
             // Ensure we have the correct key sizes
             require(copyOfPrivateKeyBytes?.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
-            require(publicKeyBytes.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
+            require(copyOfPublicKeyBytes?.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
 
             // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
             val sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
             val successfulKeyAgreement = org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
                 copyOfPrivateKeyBytes,
                 0,
-                publicKeyBytes,
+                copyOfPublicKeyBytes,
                 0,
                 sharedSecret,
                 0
@@ -52,7 +56,7 @@ object ECDH {
             throw e // TODO: Throw specific exception requiring renegotiation of handshake?
         }
         finally {
-            publicKeyBytes.fill(0)
+            copyOfPublicKeyBytes?.fill(0)
             copyOfPrivateKeyBytes?.fill(0)
         }
     }

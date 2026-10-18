@@ -3,12 +3,12 @@ package org.operatorfoundation.ratchet
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
-import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 
 object TestUtils {
 
-    fun mockEphemeralKeypair(): SecureKeyPair {
-        return SecureKeyPair(MADH.generateKeypair())
+    fun mockEphemeralKeypair(): EphemeralKeypair {
+        return EphemeralKeypair(MADH.generateKeypair())
     }
 
     fun mockPlaintext(): PlaintextMessage {

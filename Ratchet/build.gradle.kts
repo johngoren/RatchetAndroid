@@ -36,6 +36,10 @@ android {
     publishing {
         singleVariant("release")
     }
+
+    lintOptions {
+        error("VisibleForTests")
+    }
 }
 
 dependencies {

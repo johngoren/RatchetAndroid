@@ -22,7 +22,7 @@ object Decrypt {
         return try {
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytesForTesting.copyOf())
 
             // Create cipher and decrypt
             val cipher = org.operatorfoundation.aes.AesCipher()

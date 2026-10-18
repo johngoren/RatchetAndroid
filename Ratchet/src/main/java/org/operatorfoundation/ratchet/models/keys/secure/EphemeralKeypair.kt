@@ -4,11 +4,14 @@ import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
+import org.operatorfoundation.ratchet.models.keys.PrivateKey
 
-open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
+open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
     var isDestroyed: Boolean = false
 
     private val _publicKeyBytes: ByteArray = curve25519KeyPair.publicKey.bytes.copyOf()
+
     private val _privateKeyBytes: ByteArray = curve25519KeyPair.privateKey.bytes.copyOf()
 
     private val _keypair: Curve25519KeyPair
@@ -16,21 +19,11 @@ open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
             return Curve25519KeyPair(Curve25519PublicKey(_publicKeyBytes), Curve25519PrivateKey(_privateKeyBytes))
         }
 
-    val publicKey: Curve25519PublicKey
-        get() {
-            return Curve25519PublicKey(_publicKeyBytes.copyOf())
-    }
 
-    @VisibleForTesting
-    val privateKeyBytesForTesting: ByteArray
-        get() {
-            return _privateKeyBytes
-        }
-
-    fun use(block: (Curve25519KeyPair)->Unit) {
+    fun consume(block: (EphemeralPublicKey, PrivateKey)->Unit) {
         check(!isDestroyed) { "Keypair has been destroyed "}
         if (!isDestroyed) {
-            block(_keypair)
+            block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
         }
     }
 
@@ -44,20 +37,20 @@ open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
         return _keypair.privateKey.bytes.copyOf()
     }
 
-    fun copyOf(): SecureKeyPair {
+    fun copyOf(): EphemeralKeypair {
         val publicBytes = copyPublicKeyBytes()
         val privateBytes = copyPrivateKeyBytes()
 
-        return SecureKeyPair(
+        return EphemeralKeypair(
             Curve25519KeyPair(Curve25519PublicKey(publicBytes), Curve25519PrivateKey(privateBytes))
         )
     }
 
     override fun close() {
         if (!isDestroyed) {
-//            _publicKeyBytes.fill(0)
-//            _privateKeyBytes.fill(0)
-//            isDestroyed = true
+            _publicKeyBytes.fill(0)
+            _privateKeyBytes.fill(0)
+            isDestroyed = true
         }
     }
 
@@ -74,5 +67,16 @@ open class SecureKeyPair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
     {
         throw SecurityException("Hash codes have been disabled for security")
     }
+
+    @VisibleForTesting
+    val publicKeyBytesForTesting: ByteArray
+        get() {
+            return _publicKeyBytes
+        }
+
+    val privateKeyBytesForTesting: ByteArray
+        get() {
+            return _privateKeyBytes
+        }
 
 }

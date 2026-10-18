@@ -4,28 +4,76 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
+import org.operatorfoundation.ratchet.models.RatchetState
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.Encrypt
+import java.security.PublicKey
+import kotlin.test.assertTrue
 
 class RatchetHardeningTest {
+
+    // TODO: Test that everything is destroyed after use and that nothing remains
+
+    @Test
+    fun `Autoclosable ratchet state can make a copy that survives destruction of original`() {
+        val localKeypair = mockEphemeralKeypair()
+        var remotePublicKey: EphemeralPublicKey? = null
+        val remoteKeypair = mockEphemeralKeypair()
+        remoteKeypair.consume { public, private ->
+            remotePublicKey = public
+        }
+
+        val ratchetState = DoubleRatchet.initRatchetState(
+            localKeypair,
+            remotePublicKey!!
+        )
+
+        var copyOfRatchetState: RatchetState? = null
+        var copyOfRootKey: ByteArray? = null
+
+        ratchetState.use { originalRatchetState ->
+            copyOfRatchetState = RatchetState(originalRatchetState)
+            copyOfRootKey = originalRatchetState.rootKey.bytesForTesting
+        }
+        ratchetState.close()
+
+        val zeroizedBytes = ByteArray(32).fill(0)
+
+        assertTrue(copyOfRatchetState != null)
+        assertTrue(copyOfRootKey?.first()!!.equals(zeroizedBytes))
+        assertTrue(copyOfRatchetState?.rootKey?.bytesForTesting != null)
+    }
+
 
     @Test
     fun `Reuse of ECDH public key is thwarted by counter`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        var firstBobEphemeralPublicKey: Curve25519PublicKey? = null
-        var reusedBobPublicKey: Curve25519PublicKey? = null
+        var firstBobEphemeralPublicKey: EphemeralPublicKey? = null
+        var reusedBobPublicKey: EphemeralPublicKey? = null
+
+        var copyOfAlicePublicKey: EphemeralPublicKey? = null
+        var copyOfBobPublicKey: EphemeralPublicKey? = null
+
+        aliceKeypair.consume { public, private ->
+            copyOfAlicePublicKey = public
+        }
+
+        bobKeypair.consume { public, private ->
+            copyOfBobPublicKey = public
+        }
 
         val initialStateAlice = DoubleRatchet.initRatchetState(
             aliceKeypair,
-            bobKeypair.publicKey
+            copyOfBobPublicKey!!
         )
 
         val initialStateBob = DoubleRatchet.initRatchetState(
             bobKeypair,
-            aliceKeypair.publicKey
+            copyOfAlicePublicKey!!
         )
 
         // Bob ratchets and sends the first message
@@ -35,8 +83,8 @@ class RatchetHardeningTest {
 
         val originalMessage = TestUtils.mockPlaintext()
         var messageKeyBob1: MessageKey? = null
-        bobState1.use { statePeek ->
-            messageKeyBob1 = statePeek.messageKey
+        bobState1.use { bobState1 ->
+            messageKeyBob1 = bobState1.messageKey
         }
         val ciphertext1 = Encrypt.perform(messageKeyBob1!!, originalMessage)
 

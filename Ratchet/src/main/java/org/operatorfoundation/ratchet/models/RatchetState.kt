@@ -1,15 +1,13 @@
 package org.operatorfoundation.ratchet.models
 
-import org.operatorfoundation.madh.Curve25519KeyPair
-import org.operatorfoundation.madh.Curve25519PrivateKey
-import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.SharedKey
-import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
+import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 
-// TODO: Does this need Autocloseable if it's passed around in a secure autocloseable container class?
+// TODO: Getters that check whether we are correctly consuming
 
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.
@@ -19,7 +17,7 @@ import org.operatorfoundation.ratchet.models.keys.secure.SecureKeyPair
  * @property sharedKey The current shared key derived from ECDH
  * @property messageKey The current message key for encryption/decryption
  * @property localEphemeralKeypair The local ephemeral key pair
- * @property lastKnownRemotePublicEphemeralKey The remote party's ephemeral public key
+ * @property remotePublicEphemeralKey The remote party's ephemeral public key
  */
 class RatchetState(
     val rootKey: RootKey,
@@ -27,51 +25,45 @@ class RatchetState(
     val chainKey: ChainKey? = null,
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
-    val localEphemeralKeypair: SecureKeyPair? = null,
-    val lastKnownRemotePublicEphemeralKey: Curve25519PublicKey? = null,
+    val localEphemeralKeypair: EphemeralKeypair? = null,
+    val remotePublicEphemeralKey: EphemeralPublicKey? = null,
     val sessionId: ByteArray = ByteArray(16),
     var counterLastReceivedKeyNum: Int = 0,
     var counterLastSentKeyNum: Int = 0
-) {
+): AutoCloseable {
 
-    fun copy(
-        rootKey: RootKey = this.rootKey,
-        messageNumber: Int = this.messageNumber,
-        chainKey: ChainKey? = this.chainKey,
-        sharedKey: SharedKey? = this.sharedKey,
-        messageKey: MessageKey? = this.messageKey,
-        localEphemeralKeypair: SecureKeyPair? = this.localEphemeralKeypair,
-        remoteEphemeralPublicKey: Curve25519PublicKey? = this.lastKnownRemotePublicEphemeralKey): RatchetState
-    {
-        val copyOfRootKey = RootKey(rootKey.bytes.copyOf())
-        val copyOfChainKey = if (chainKey != null) { ChainKey(chainKey.bytes.copyOf()) } else { null }
-        val copyOfSharedKey = if (sharedKey != null) { SharedKey(sharedKey.bytes.copyOf()) } else { null }
-        val copyOfMessageKey = if (messageKey != null) { MessageKey(messageKey.bytes.copyOf()) } else { null }
+    // TODO: Make copies.
 
-        var copyOfLocalEphemeralKeypair: SecureKeyPair? = null
+    constructor(previous: RatchetState,
+                rootKey: RootKey = previous.rootKey,
+                messageNumber: Int = previous.messageNumber,
+                chainKey: ChainKey? = previous.chainKey,
+                sharedKey: SharedKey? = previous.sharedKey,
+                messageKey: MessageKey? = previous.messageKey,
+                localEphemeralKeypair: EphemeralKeypair? = previous.localEphemeralKeypair,
+                remoteEphemeralPublicKey: EphemeralPublicKey? = previous.remotePublicEphemeralKey,
+                sessionId: ByteArray = previous.sessionId,
+                counterLastReceivedKeyNum: Int = previous.counterLastReceivedKeyNum,
+                counterLastSentKeyNum: Int = previous.counterLastSentKeyNum
+    ) : this(
+            rootKey = rootKey,
+            messageNumber = messageNumber,
+            chainKey = chainKey,
+            sharedKey = sharedKey,
+            messageKey = messageKey,
+            localEphemeralKeypair = localEphemeralKeypair,
+            remotePublicEphemeralKey = remoteEphemeralPublicKey,
+            sessionId = sessionId,
+            counterLastReceivedKeyNum = counterLastReceivedKeyNum,
+            counterLastSentKeyNum = counterLastSentKeyNum
+        )
 
-        localEphemeralKeypair?.use { localKeypair ->
-            val tempCopyOfLocalEphemeralKeypair = Curve25519KeyPair(
-                Curve25519PublicKey(localKeypair.publicKey.bytes.copyOf()),
-                Curve25519PrivateKey(localKeypair.privateKey.bytes.copyOf())
-            )
-            copyOfLocalEphemeralKeypair = SecureKeyPair(tempCopyOfLocalEphemeralKeypair)
-        }
-        require(copyOfLocalEphemeralKeypair != null) { throw Exception("Missing local ephemeral keypair") }
-
-        var copyOfRemoteEphemeralPublicKey: Curve25519PublicKey? = null
-        remoteEphemeralPublicKey?.also {
-            copyOfRemoteEphemeralPublicKey = Curve25519PublicKey(it.bytes)
-        }
-        return RatchetState( copyOfRootKey, messageNumber, copyOfChainKey, copyOfSharedKey, copyOfMessageKey, copyOfLocalEphemeralKeypair, copyOfRemoteEphemeralPublicKey, sessionId)
-    }
-
-    fun close() {
-//        rootKey.close()
-//        chainKey?.close()
-//        sharedKey?.close()
-//        messageKey?.close()
-//        localEphemeralKeypair?.close()
+    override fun close() {
+        rootKey.close()
+        chainKey?.close()
+        sharedKey?.close()
+        messageKey?.close()
+        localEphemeralKeypair?.close()
 //        lastKnownRemotePublicEphemeralKey?.bytes?.fill(0)
     }
 }

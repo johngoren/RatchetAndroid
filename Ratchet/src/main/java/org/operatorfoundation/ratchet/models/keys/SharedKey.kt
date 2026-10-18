@@ -15,7 +15,7 @@ class SharedKey(bytes: ByteArray): SecureKey(bytes.copyOf())
         fun fromECDH(sharedSecret: Secret): SharedKey {
             var sharedKey: SharedKey? = null
 
-            sharedSecret.use { sharedSecret ->
+            sharedSecret.consume { sharedSecret ->
                 require(sharedSecret.size == 32) { "ECDH result must be 32 bytes" }
                 sharedKey = SharedKey(sharedSecret.copyOf())
             }

@@ -12,7 +12,7 @@ object HKDF {
     {
         var result: ByteArray? = null
 
-        sharedSecret.use { sharedKey ->
+        sharedSecret.consume { sharedKey ->
             // HKDF-Extract: PRK = HMAC(salt=oldRootKey, ikm=sharedKey)
             val prk = HMAC.perform(oldRootKey, sharedKey)
 
@@ -34,7 +34,7 @@ object HKDF {
         // TODO: Enforce proper secret size inside sharedSecret.
 
         return try {
-            sharedSecret.use { sharedKey ->
+            sharedSecret.consume { sharedKey ->
                 // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)
                 val prk = HMAC.perform(salt, sharedKey)
 

@@ -27,7 +27,7 @@ object Encrypt {
             copyOfPlaintextBytes = plaintext.toBytes()
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytes.copyOf())
+            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytesForTesting.copyOf())
 
             // Create cipher and encrypt
             val cipher = org.operatorfoundation.aes.AesCipher()
