@@ -62,37 +62,35 @@ class RatchetUnitTests {
     fun `ratchetForSend generates ephemeral keys and derives chain`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
+        val bobPublicKey = bobKeypair.publicKeyCopyForTesting
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
 
-            val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
+        initialState.use { state0 ->
 
-            initialState.use { state0 ->
+            val copyOfInitialRootKey = state0.rootKey.bytesForTesting
 
-                var copyOfInitialRootKey = state0.rootKey.bytesForTesting
+            // Perform first ratchet with new key
+            val result = Ratchet.ratchetForSend(initialState)
+            result.state.use { state1 ->
 
-                // Perform first ratchet with new key
-                val result = Ratchet.ratchetForSend(initialState)
-                result.state.use { state1 ->
+                // Should now have all ephemeral state
+                assertNotNull(state1.chainKey)
+                assertNotNull(state1.sharedKey)
+                assertNotNull(state1.messageKey)
+                assertNotNull(result.newEphemeralPublicKey)
 
-                    // Should now have all ephemeral state
-                    assertNotNull(state1.chainKey)
-                    assertNotNull(state1.sharedKey)
-                    assertNotNull(state1.messageKey)
-                    assertNotNull(result.newEphemeralPublicKey)
+                // Message number should increment
+                assertEquals(1, state1.messageNumber)
 
-                    // Message number should increment
-                    assertEquals(1, state1.messageNumber)
+                // Root key should be different from initial
+                assertFalse(copyOfInitialRootKey.contentEquals(state1.rootKey.bytesForTesting))
 
-                    // Root key should be different from initial
-                    assertFalse(copyOfInitialRootKey.contentEquals(state1.rootKey.bytesForTesting))
-
-                    // All keys should be 32 bytes
-                    assertEquals(32, state1.chainKey!!.bytesForTesting.size)
-                    assertEquals(32, state1.sharedKey!!.bytesForTesting.size)
-                    assertEquals(32, state1.messageKey!!.bytesForTesting.size)
-                    assertEquals(32, result.newEphemeralPublicKey.bytesForTesting.size)
-                }
+                // All keys should be 32 bytes
+                assertEquals(32, state1.chainKey!!.bytesForTesting.size)
+                assertEquals(32, state1.sharedKey!!.bytesForTesting.size)
+                assertEquals(32, state1.messageKey!!.bytesForTesting.size)
+                assertEquals(32, result.newEphemeralPublicKey.bytesForTesting.size)
             }
         }
     }

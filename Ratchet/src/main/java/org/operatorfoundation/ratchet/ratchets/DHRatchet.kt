@@ -42,15 +42,17 @@ object DHRatchet {
         outgoingCounter: Int? = null
     ): RatchetState
     {
+        val copyOfOldState = RatchetState(oldState)
+        require(oldState.isUsable) { "Tried to ratchet from an old state that has expired" }
+
         var newChainKey: ChainKey? = null
         var newRootKey: RootKey? = null
         var newSharedKey: SharedKey? = null
         var newMessageKey: MessageKey? = null
 
-        var copyOfOldState: RatchetState? = null
         var copyOfLocalEphemeralPublicKey: ByteArray? = null
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
-        var copyOfRemotePublicKey: ByteArray? = null
+        var copyOfRemotePublicKey: ByteArray? = remotePublicKey.copyBytes()
         var copyOfOldRootKey: ByteArray? = null
         var copyOfSessionId: ByteArray? = null
         var copyOfSharedSecret: ByteArray? = null
@@ -61,20 +63,13 @@ object DHRatchet {
         var copyOfNewChainKeyBytes: ByteArray? = null
 
         return try {
-            require(oldState.isUsable) { "Tried to ratchet from an old state that has expired" }
-
-            copyOfOldState = RatchetState(oldState)
-
             localEphemeralKeypair.consume { localPublicKey, localPrivateKey ->
-                    copyOfLocalEphemeralPublicKey = localPublicKey.copyBytes()
-                    copyOfLocalEphemeralPrivateKey = localPrivateKey.copyBytes()
+                copyOfLocalEphemeralPublicKey = localPublicKey.copyBytes()
+                copyOfLocalEphemeralPrivateKey = localPrivateKey.copyBytes()
             }
             require(copyOfLocalEphemeralPrivateKey?.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
 
-            remotePublicKey.consume { remotePublicKeyBytes ->
-                copyOfRemotePublicKey = remotePublicKeyBytes.copyOf()
-            }
-
+            copyOfRemotePublicKey = remotePublicKey.copyBytes()
             copyOfOldState.use {
                 it.apply {
                     copyOfOldRootKey = it.rootKey.copyBytes()

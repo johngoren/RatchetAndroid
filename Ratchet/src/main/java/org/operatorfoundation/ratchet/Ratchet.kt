@@ -56,10 +56,7 @@ object Ratchet
     {
         var copyOfRemotePublicKey: EphemeralPublicKey? = null
 
-        initialRemotePublicKey.consume { bytes ->
-            copyOfRemotePublicKey = EphemeralPublicKey(bytes.copyOf())
-        }
-        require(copyOfRemotePublicKey != null) { "Tried to use remote public key but the bytes were null" }
+        copyOfRemotePublicKey = EphemeralPublicKey(initialRemotePublicKey.copyBytes())
 
         val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
         var copyOfInitialLocalPrivateKey: PrivateKey? = null
@@ -125,8 +122,10 @@ object Ratchet
     {
         var result: RatchetSendResult? = null
 
-        val copyOfOldState = RatchetState(oldState)
+        // The sender generates fresh new keys to add entropy
         val newLocalEphemeralKeypair = generateEphemeralKeypair()
+
+        val copyOfOldState = RatchetState(oldState)
         var copyOfRemoteKeyBytes: ByteArray? = null
         var copyOfNewEphemeralPublicKeyWeAreSending: ByteArray? = null
         var copyOfNewEphemeralPrivateKey: ByteArray? = null
@@ -139,25 +138,23 @@ object Ratchet
             require(copyOfNewEphemeralPublicKeyWeAreSending != null) { "Copy of outgoing remote public key is null"}
 
             copyOfOldState.use {
-                it.remoteEphemeralPublicKey?.consume {
-                    copyOfRemoteKeyBytes = it.copyOf()
-                }
+                copyOfRemoteKeyBytes = it.remoteEphemeralPublicKey.copyBytes()
                 require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
 
                 val newState = DHRatchet.perform(
                     oldState = copyOfOldState,
                     localEphemeralKeypair = EphemeralKeypair.from(copyOfNewEphemeralPublicKeyWeAreSending, copyOfNewEphemeralPrivateKey!!),
-                    remotePublicKey = EphemeralPublicKey(copyOfRemoteKeyBytes.copyOf())
+                    remotePublicKey = EphemeralPublicKey(copyOfRemoteKeyBytes)
                 )
                 result = RatchetSendResult(
                     newState,
-                    EphemeralPublicKey(copyOfNewEphemeralPublicKeyWeAreSending.copyOf()),
+                    EphemeralPublicKey(copyOfNewEphemeralPublicKeyWeAreSending),
                 )
             }
         result ?: throw RedoHandshakeException("Trouble creating ratchet result")
         }
         catch(e: Exception) {
-            throw RedoHandshakeException()
+            throw RedoHandshakeException(e.message ?: "Something went wrong")
         }
         finally {
             copyOfOldState.close()

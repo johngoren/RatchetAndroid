@@ -20,7 +20,7 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
         if (!isDestroyed) {
             block(_keyBytes)
         }
-//        close()
+        close()
     }
 
     fun copyBytes(): ByteArray {
