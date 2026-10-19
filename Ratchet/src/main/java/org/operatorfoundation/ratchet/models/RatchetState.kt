@@ -66,6 +66,9 @@ class RatchetState(
         require(oldState.isUsable) { "Tried to copy a state that has expired."}
     }
 
+    override fun toString(): String {
+        return if (isDestroyed) " ***destroyed state** " else " usable state ready for ratcheting "
+    }
 
     override fun close() {
         isDestroyed = true

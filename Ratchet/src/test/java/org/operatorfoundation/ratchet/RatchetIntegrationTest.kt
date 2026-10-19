@@ -324,35 +324,33 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        var copyOfBobPublicKey: EphemeralPublicKey? = null
 
-            val secureInitialState = Ratchet.initRatchetState(
-                aliceKeypair,
-                bobPublicKey
-            )
+        bobKeypair.consume { bobPublicKey, _ ->
+            copyOfBobPublicKey = EphemeralPublicKey(bobPublicKey.bytesForTesting)
+        }
 
-            secureInitialState.use { initialState ->
-                // Perform first DH ratchet with ephemeral keys
-                val result1 = Ratchet.ratchetForSend(secureInitialState)
-                val state1 = result1.state
-                state1.use{
-                    state1Peek ->
-                    // Perform second DH ratchet with new ephemeral keys
+        val initialState = Ratchet.initRatchetState(
+            aliceKeypair,
+            copyOfBobPublicKey!!
+        )
 
-                    val result2 = Ratchet.ratchetForSend(state1)
-                    result2.state.use { state2 ->
+        // Perform first DH ratchet with ephemeral keys
+        val result1 = Ratchet.ratchetForSend(initialState)
+        val state1 = result1.state
+        val state1copy = RatchetState(state1)
 
-                        // All keys should be completely different (forward secrecy)
-                        assertFalse(state1Peek.rootKey.bytesForTesting.contentEquals(state2.rootKey.bytesForTesting))
-                        assertFalse(state1Peek.chainKey!!.bytesForTesting.contentEquals(state2.chainKey!!.bytesForTesting))
-                        assertFalse(state1Peek.messageKey!!.bytesForTesting.contentEquals(state2.messageKey!!.bytesForTesting))
-                        assertFalse(state1Peek.sharedKey!!.bytesForTesting.contentEquals(state2.sharedKey!!.bytesForTesting))
+        // Perform second DH ratchet with new ephemeral keys
+        val result2 = Ratchet.ratchetForSend(state1)
+        result2.state.use { state2 ->
+            // All keys should be completely different (forward secrecy)
+            assertFalse(state1copy.rootKey.bytesForTesting.contentEquals(state2.rootKey.bytesForTesting))
+            assertFalse(state1copy.chainKey!!.bytesForTesting.contentEquals(state2.chainKey!!.bytesForTesting))
+            assertFalse(state1copy.messageKey!!.bytesForTesting.contentEquals(state2.messageKey!!.bytesForTesting))
+            assertFalse(state1copy.sharedKey!!.bytesForTesting.contentEquals(state2.sharedKey!!.bytesForTesting))
 
-                        // The ephemeral keys should be different
-                        assertFalse(result1.newEphemeralPublicKey.bytesForTesting.contentEquals(result2.newEphemeralPublicKey.bytesForTesting))
-                    }
-                }
-            }
+            // The ephemeral keys should be different
+            assertFalse(result1.newEphemeralPublicKey.bytesForTesting.contentEquals(result2.newEphemeralPublicKey.bytesForTesting))
         }
     }
 
