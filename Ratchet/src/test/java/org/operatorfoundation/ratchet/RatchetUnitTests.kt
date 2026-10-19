@@ -5,6 +5,7 @@ import org.junit.Assert.*
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
+import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.Encrypt
@@ -189,6 +190,8 @@ class RatchetUnitTests {
                     // Message number should increment
                     assertEquals(2, state2.messageNumber)
 
+                    // TODO: Feels like something wonky is happening here with ::bytesForTesting
+
                     // Chain key and message key should change
                     assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytesForTesting))
                     assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytesForTesting))
@@ -249,43 +252,46 @@ class RatchetUnitTests {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        bobKeypair.consume { bobPublicKey, _ ->
 
             val secureInitialState = DoubleRatchet.initRatchetState(aliceKeypair, bobPublicKey)
             val bobEphemeralKeypair = mockEphemeralKeypair()
 
-            bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
+            var copyOfBobInitialPublicKey: EphemeralPublicKey? = null
 
-                secureInitialState.use { initialState ->
+            bobEphemeralKeypair.consume { bobPublicKey, _ ->
+                copyOfBobInitialPublicKey = EphemeralPublicKey(bobPublicKey.deepCopyBytes())
+            }
 
-                    DoubleRatchet.ratchetForReceive(secureInitialState, bobPublicKey)
-                        .use { state ->
+            secureInitialState.use { initialState ->
 
-                            val messageKeys = mutableListOf(state.messageKey!!.bytesForTesting)
-                            var previousState = state
+                DoubleRatchet.ratchetForReceive(secureInitialState, copyOfBobInitialPublicKey!!)
+                    .use { state ->
 
-                            // Generate 5 more message keys
-                            repeat(5)
-                            {
+                        val messageKeys = mutableListOf(state.messageKey!!.bytesForTesting)
+                        var previousState = state
 
-                                DoubleRatchet.symmetricRatchet(previousState)
-                                    .use { newState ->
-                                        messageKeys.add(newState.messageKey!!.bytesForTesting)
-                                        previousState = newState
-                                    }
-                            }
+                        // Generate 5 more message keys
+                        repeat(5)
+                        {
 
-                            // All message keys should be unique
-                            for (i in messageKeys.indices) {
-                                for (j in i + 1 until messageKeys.size) {
-                                    assertFalse(
-                                        "Message keys $i and $j should be different",
-                                        messageKeys[i].contentEquals(messageKeys[j])
-                                    )
+                            DoubleRatchet.symmetricRatchet(previousState)
+                                .use { newState ->
+                                    messageKeys.add(newState.messageKey!!.bytesForTesting)
+                                    previousState = newState
                                 }
+                        }
+
+                        // All message keys should be unique
+                        for (i in messageKeys.indices) {
+                            for (j in i + 1 until messageKeys.size) {
+                                assertFalse(
+                                    "Message keys $i and $j should be different",
+                                    messageKeys[i].contentEquals(messageKeys[j])
+                                )
                             }
                         }
-                }
+                    }
             }
         }
     }

@@ -17,14 +17,14 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
 
 
     fun consume(block: (ByteArray)->Unit) {
-        check(!isDestroyed) { "Key has been destroyed "}
+        check(!isDestroyed) { getMessageDescribingKeyDestruction() }
         if (!isDestroyed) {
             block(_keyBytes)
         }
     }
 
-    fun copyBytes(): ByteArray {
-        check(!isDestroyed) { "Key has been destroyed "}
+    fun deepCopyBytes(): ByteArray {
+        check(!isDestroyed) { getMessageDescribingKeyDestruction() }
         return _keyBytes.copyOf()
     }
 
@@ -36,7 +36,7 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
     }
 
     override fun toString(): String {
-        return "Symmetric key" + if (isDestroyed) " ***destroyed*** " else " redacted for security"
+        return "Key" + if (isDestroyed) " ***destroyed*** " else " redacted for security"
     }
 
     override fun equals(other: Any?): Boolean
@@ -49,11 +49,18 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
         throw SecurityException("Hash codes have been disabled for security")
     }
 
+    private fun getMessageDescribingKeyDestruction(): String {
+        return "Key ${this.javaClass.name} has been destroyed "
+    }
+
+    fun isUsable(): Boolean {
+        return !isDestroyed
+    }
+
     @VisibleForTesting
     val bytesForTesting: ByteArray
         get() {
-            check(!isDestroyed) { "Key has been destroyed "}
+            check(!isDestroyed) { getMessageDescribingKeyDestruction() }
             return _keyBytes.copyOf()
         }
-
 }

@@ -21,7 +21,7 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable
 
 
     fun consume(block: (EphemeralPublicKey, PrivateKey)->Unit) {
-        check(!isDestroyed) { "Keypair has been destroyed "}
+        check(!isDestroyed) { "Ephemeral keypair has been destroyed "}
         if (!isDestroyed) {
             block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
         }

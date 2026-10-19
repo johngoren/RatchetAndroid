@@ -20,6 +20,7 @@ object SymmetricRatchet {
     {
         var nextRatchetState: RatchetState? = null
         var copyOfOldChainKey: ByteArray? = null
+        var copyOfNewChainKey: ByteArray? = null
         var chainHmacOutput: ByteArray? = null
         var messageHmacOutput: ByteArray? = null
 
@@ -28,7 +29,12 @@ object SymmetricRatchet {
 
                 // Ensure we have a chain key to work with
                 requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewKey first." }
-                copyOfOldChainKey = oldState.chainKey.bytesForTesting.copyOf()
+                require(oldState.chainKey.isUsable()) { "Tried to use a chain key that had been destroyed" }
+
+                oldState.chainKey.consume {
+                    copyOfOldChainKey = it
+                }
+                require(copyOfOldChainKey != null) { "Tried to use chain key bytes that were null" }
 
                 // Increment message number
                 val newMessageNumber = oldState.messageNumber + 1
@@ -39,10 +45,14 @@ object SymmetricRatchet {
                     newMessageNumber.toString().toByteArray()
                 )
                 val newChainKey = ChainKey.fromHMAC(chainHmacOutput)
+                newChainKey.consume {
+                    copyOfNewChainKey = it
+                }
+                require(copyOfNewChainKey != null) { "Tried to use new chain key bytes, but they were null"}
 
                 // Derive new message key: M_n = HMAC(C_n, n)
                 messageHmacOutput = HMAC.perform(
-                    key=newChainKey.bytesForTesting,
+                    key=copyOfNewChainKey,
                     data=newMessageNumber.toString().toByteArray()
                 )
 
@@ -50,8 +60,8 @@ object SymmetricRatchet {
                 val newState = RatchetState(
                     previous = oldState,
                     messageNumber = newMessageNumber,
-                    chainKey = newChainKey,
-                    messageKey = MessageKey.fromHMAC(messageHmacOutput)
+                    chainKey = ChainKey(newChainKey.deepCopyBytes()),
+                    messageKey = MessageKey.fromHMAC(messageHmacOutput.copyOf())
                 )
                 nextRatchetState = newState
             }

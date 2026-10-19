@@ -19,10 +19,16 @@ object Decrypt {
         var aesKey: AesGcmKey? = null
         var decryptedBytes: ByteArray? = null
 
+        var copyOfKeyBytes: ByteArray? = null
+        key.consume { bytes ->
+            copyOfKeyBytes = bytes.copyOf()
+        }
+        require(copyOfKeyBytes != null) { "Tried to use copy of message key bytes but they were null" }
+
         return try {
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytesForTesting.copyOf())
+            aesKey = org.operatorfoundation.aes.AesGcmKey(copyOfKeyBytes)
 
             // Create cipher and decrypt
             val cipher = org.operatorfoundation.aes.AesCipher()

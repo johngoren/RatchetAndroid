@@ -8,6 +8,7 @@ import org.operatorfoundation.ratchet.models.keys.SharedKey
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 
 // TODO: Getters that check whether we are correctly consuming
+// TODO: Check that keys we are using are alive
 
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.
@@ -25,8 +26,8 @@ class RatchetState(
     val chainKey: ChainKey? = null,
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
-    val localEphemeralKeypair: EphemeralKeypair? = null,
-    val remotePublicEphemeralKey: EphemeralPublicKey? = null,
+    val localEphemeralKeypair: EphemeralKeypair,
+    val remotePublicEphemeralKey: EphemeralPublicKey,
     val sessionId: ByteArray = ByteArray(16),
     var counterLastReceivedKeyNum: Int = 0,
     var counterLastSentKeyNum: Int = 0
@@ -40,30 +41,31 @@ class RatchetState(
                 chainKey: ChainKey? = previous.chainKey,
                 sharedKey: SharedKey? = previous.sharedKey,
                 messageKey: MessageKey? = previous.messageKey,
-                localEphemeralKeypair: EphemeralKeypair? = previous.localEphemeralKeypair,
-                remoteEphemeralPublicKey: EphemeralPublicKey? = previous.remotePublicEphemeralKey,
+                localEphemeralKeypair: EphemeralKeypair = previous.localEphemeralKeypair,
+                remoteEphemeralPublicKey: EphemeralPublicKey = previous.remotePublicEphemeralKey,
                 sessionId: ByteArray = previous.sessionId,
                 counterLastReceivedKeyNum: Int = previous.counterLastReceivedKeyNum,
                 counterLastSentKeyNum: Int = previous.counterLastSentKeyNum
     ) : this(
-            rootKey = rootKey,
+            rootKey = RootKey(rootKey.deepCopyBytes()),
             messageNumber = messageNumber,
-            chainKey = chainKey,
-            sharedKey = sharedKey,
-            messageKey = messageKey,
-            localEphemeralKeypair = localEphemeralKeypair,
-            remotePublicEphemeralKey = remoteEphemeralPublicKey,
+            chainKey = if (chainKey != null) { ChainKey(chainKey.deepCopyBytes()) } else null,
+            sharedKey = if (sharedKey != null) { SharedKey(sharedKey.deepCopyBytes()) } else null,
+            messageKey = if (messageKey != null) { MessageKey(messageKey.deepCopyBytes())} else null,
+            localEphemeralKeypair = localEphemeralKeypair.copyOf(),
+            remotePublicEphemeralKey = EphemeralPublicKey(remoteEphemeralPublicKey.deepCopyBytes()),
             sessionId = sessionId,
             counterLastReceivedKeyNum = counterLastReceivedKeyNum,
             counterLastSentKeyNum = counterLastSentKeyNum
-        )
+        ) {
+    }
 
     override fun close() {
         rootKey.close()
         chainKey?.close()
         sharedKey?.close()
         messageKey?.close()
-        localEphemeralKeypair?.close()
-//        lastKnownRemotePublicEphemeralKey?.bytes?.fill(0)
+        localEphemeralKeypair.close()
+        remotePublicEphemeralKey.close()
     }
 }

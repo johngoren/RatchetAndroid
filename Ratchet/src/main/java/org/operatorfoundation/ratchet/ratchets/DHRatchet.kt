@@ -1,6 +1,5 @@
 package org.operatorfoundation.ratchet.ratchets
 
-import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
@@ -10,7 +9,6 @@ import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.SharedKey
-import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 import org.operatorfoundation.ratchet.utils.ContextField
 import org.operatorfoundation.ratchet.utils.ECDH
@@ -43,12 +41,13 @@ object DHRatchet {
     {
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
         var copyOfRemotePublicKey: ByteArray? = null
-        var copyOfOldRootKey: SecureKey? = null
+        var copyOfOldRootKey: ByteArray? = null
         var copyOfSessionId: ByteArray? = null
         var messageNum: Int? = null
         var sharedSecret: Secret? = null
         var hkdfOutput: ByteArray? = null
         var hmacOutput: ByteArray? = null
+        var copyOfNewChainKeyBytes: ByteArray? = null
 
         return try {
             localEphemeralKeypair.consume { localPublicKey, localPrivateKey ->
@@ -61,9 +60,9 @@ object DHRatchet {
                 copyOfRemotePublicKey = remotePublicKeyBytes
             }
 
-            oldState.use { oldStatePeek ->
-                oldStatePeek.apply {
-                    copyOfOldRootKey = RootKey(rootKey.bytesForTesting)
+            oldState.use {
+                it.apply {
+                    copyOfOldRootKey = it.rootKey.deepCopyBytes()
                     copyOfSessionId = sessionId
                     messageNum = messageNumber
                 }
@@ -80,23 +79,27 @@ object DHRatchet {
             val newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys:
-            // was: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
 
             val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, copyOfSessionId, counter ?: 0) // TODO: Remove fallback
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
-                copyOfOldRootKey.bytesForTesting,
+                copyOfOldRootKey,
                 sharedSecret,
                 contextBoundToSessionAndCounterNonces
             )
             val newRootKey = RootKey.fromHKDF(hkdfOutput)
             val newChainKey = ChainKey.fromHKDF(hkdfOutput)
 
+            newChainKey.consume {
+                copyOfNewChainKeyBytes = it
+            }
+            require(copyOfNewChainKeyBytes != null) { "New chain key bytes were null"}
+
             // Increment message number and derive message key: M_n = HMAC(C_n, n)
             val newMessageNumber = messageNum + 1
             hmacOutput =
-                HMAC.perform(newChainKey.bytesForTesting, newMessageNumber.toString().toByteArray())
+                HMAC.perform(copyOfNewChainKeyBytes, newMessageNumber.toString().toByteArray())
             val messageKey = MessageKey.fromHMAC(hmacOutput)
 
             val newState = RatchetState(
@@ -115,10 +118,11 @@ object DHRatchet {
         catch(e: Exception) {
             throw e
         } finally {
-            copyOfOldRootKey?.bytesForTesting?.fill(0)
+            copyOfOldRootKey?.fill(0)
             copyOfRemotePublicKey?.fill(0)
             copyOfLocalEphemeralPrivateKey?.fill(0)
-            sharedSecret?.bytesForTesting?.fill(0)
+            copyOfNewChainKeyBytes?.fill(0)
+            sharedSecret?.close()
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)
             oldState.close()

@@ -20,14 +20,20 @@ object Encrypt {
     fun perform(key: MessageKey, plaintext: PlaintextMessage): Ciphertext
     {
         var copyOfPlaintextBytes: ByteArray? = null
+        var copyOfKeyBytes: ByteArray? = null
         var aesKey: AesGcmKey? = null
 
         try {
+            key.consume { bytes ->
+                copyOfKeyBytes = bytes.copyOf()
+            }
+            require(copyOfKeyBytes != null) { "Tried to use key bytes copy but was null"}
+
             // Serialize the plaintext message to bytes
             copyOfPlaintextBytes = plaintext.toBytes()
 
             // Create AES-GCM key from the message key
-            aesKey = org.operatorfoundation.aes.AesGcmKey(key.bytesForTesting.copyOf())
+            aesKey = org.operatorfoundation.aes.AesGcmKey(copyOfKeyBytes)
 
             // Create cipher and encrypt
             val cipher = org.operatorfoundation.aes.AesCipher()

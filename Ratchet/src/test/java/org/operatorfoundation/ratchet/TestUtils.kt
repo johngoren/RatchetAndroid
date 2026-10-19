@@ -14,9 +14,8 @@ object TestUtils {
     fun mockPlaintext(): PlaintextMessage {
         return PlaintextMessage(
             type = PlaintextMessageType.UNCOMPRESSED_TEXT,
-            bytes = "Hello, World!".toByteArray()
+            bytes = "'Programs are meant to be read by humans and only incidentally for computers to execute.' -- Don Knuth".toByteArray()
         )
-
     }
 
 }

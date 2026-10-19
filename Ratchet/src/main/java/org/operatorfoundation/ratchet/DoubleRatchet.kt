@@ -54,10 +54,15 @@ object DoubleRatchet
         sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce and make sure it's not repeatable from OOB
     ): RatchetState
     {
+        var copyOfRemotePublicKey: EphemeralPublicKey? = null
         var newRatchetState: RatchetState? = null
 
+        initialRemotePublicKey.consume { bytes ->
+            copyOfRemotePublicKey = EphemeralPublicKey(bytes.copyOf())
+        }
+        require(copyOfRemotePublicKey != null) { "Tried to use remote public key but the bytes were null" }
+
         val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
-        val copyOfInitialRemotePublicKey = EphemeralPublicKey(initialRemotePublicKey.bytesForTesting.copyOf())
         var copyOfInitialLocalPrivateKey: PrivateKey? = null
         val copyOfSessionId = sessionId.copyOf()
 
@@ -76,7 +81,7 @@ object DoubleRatchet
                 require(copyOfInitialLocalPrivateKey != null)
 
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
-                initialSharedSecret = ECDH.perform(copyOfInitialLocalPrivateKey, copyOfInitialRemotePublicKey)
+                initialSharedSecret = ECDH.perform(copyOfInitialLocalPrivateKey, copyOfRemotePublicKey)
 
                 // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
@@ -89,7 +94,7 @@ object DoubleRatchet
                     rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
                     sessionId = copyOfSessionId.copyOf(),
                     localEphemeralKeypair = copyOfInitialLocalKeypair,
-                    remotePublicEphemeralKey = copyOfInitialRemotePublicKey
+                    remotePublicEphemeralKey = copyOfRemotePublicKey
                 )
             }
             newState ?: throw RedoHandshakeException("Something went wrong in initialization")
@@ -129,7 +134,7 @@ object DoubleRatchet
 
         return try {
             newLocalEphemeralKeypair.consume { public, _ ->
-                copyOfNewEphemeralPublicKeyWeAreSending = public.copyBytes()
+                copyOfNewEphemeralPublicKeyWeAreSending = public.deepCopyBytes()
             }
             require(copyOfNewEphemeralPublicKeyWeAreSending != null) { "Copy of outgoing remote public key is null"}
 
@@ -172,11 +177,13 @@ object DoubleRatchet
      */
 
     fun ratchetForReceive(oldState: RatchetState, incomingEphemeralPublicKey: EphemeralPublicKey, incomingCounter: Int? = null): RatchetState {
-        var localEphemeralKeypair: EphemeralKeypair? = null
+        var copyOfLocalEphemeralKeypair: EphemeralKeypair? = null
+        var copyOfIncomingEphemeralPublicKey: EphemeralPublicKey? = null
 
         return try {
             require(oldState.localEphemeralKeypair != null) { throw RedoHandshakeException("No local ephemeral keys available") }
-            localEphemeralKeypair = oldState.localEphemeralKeypair
+            copyOfLocalEphemeralKeypair = oldState.localEphemeralKeypair.copyOf()
+            copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.deepCopyBytes())
 
             incomingCounter?.also {
                 validateCounter(incomingCounter, oldState.counterLastReceivedKeyNum)
@@ -186,8 +193,8 @@ object DoubleRatchet
 
             val resultingRatchetState = DHRatchet.perform(
                 oldState = oldState,
-                localEphemeralKeypair = localEphemeralKeypair,
-                remotePublicKey = incomingEphemeralPublicKey,
+                localEphemeralKeypair = copyOfLocalEphemeralKeypair,
+                remotePublicKey = copyOfIncomingEphemeralPublicKey,
                 counter = incomingCounter
             )
             resultingRatchetState
@@ -195,7 +202,7 @@ object DoubleRatchet
             throw RedoHandshakeException(e.message ?: "Something went wrong while receiving a message")
         }
         finally {
-            localEphemeralKeypair?.close()
+            copyOfLocalEphemeralKeypair?.close()
         }
     }
 
