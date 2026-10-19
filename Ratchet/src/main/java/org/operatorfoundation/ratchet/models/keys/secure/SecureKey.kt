@@ -15,12 +15,12 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
         _keyBytes = keyBytes.copyOf()
     }
 
-
     fun consume(block: (ByteArray)->Unit) {
         check(!isDestroyed) { getMessageDescribingKeyDestruction() }
         if (!isDestroyed) {
             block(_keyBytes)
         }
+        close()
     }
 
     fun copyBytes(): ByteArray {

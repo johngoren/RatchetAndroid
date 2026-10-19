@@ -55,7 +55,6 @@ object Ratchet
     ): RatchetState
     {
         var copyOfRemotePublicKey: EphemeralPublicKey? = null
-        var newRatchetState: RatchetState? = null
 
         initialRemotePublicKey.consume { bytes ->
             copyOfRemotePublicKey = EphemeralPublicKey(bytes.copyOf())
@@ -93,8 +92,8 @@ object Ratchet
                 newState = RatchetState(
                     rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
                     sessionId = copyOfSessionId.copyOf(),
-                    localEphemeralKeypair = copyOfInitialLocalKeypair,
-                    remoteEphemeralPublicKey = copyOfRemotePublicKey
+                    localEphemeralKeypair = copyOfInitialLocalKeypair.copyOf(),
+                    remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyBytes())
                 )
             }
             newState ?: throw RedoHandshakeException("Something went wrong in initialization")
@@ -104,12 +103,11 @@ object Ratchet
             throw RedoHandshakeException(e.message ?: "Something went wrong in initialization")
         }
         finally {
-//            copyOfInitialLocalKeypair.close()
-//            copyOfInitialRemotePublicKey.bytes.fill(0)
-//            copyOfInitialLocalPrivateKey?.close()
-//            copyOfSessionId.fill(0)
-//            initialSharedSecret?.close()
-//            hkdfOutput?.fill(0)
+            copyOfInitialLocalKeypair.close()
+            copyOfInitialLocalPrivateKey?.close()
+            copyOfSessionId.fill(0)
+            initialSharedSecret?.close()
+            hkdfOutput?.fill(0)
         }
     }
 
@@ -131,10 +129,12 @@ object Ratchet
         val newLocalEphemeralKeypair = generateEphemeralKeypair()
         var copyOfRemoteKeyBytes: ByteArray? = null
         var copyOfNewEphemeralPublicKeyWeAreSending: ByteArray? = null
+        var copyOfNewEphemeralPrivateKey: ByteArray? = null
 
         return try {
-            newLocalEphemeralKeypair.consume { public, _ ->
+            newLocalEphemeralKeypair.consume { public, private ->
                 copyOfNewEphemeralPublicKeyWeAreSending = public.copyBytes()
+                copyOfNewEphemeralPrivateKey = private.copyBytes()
             }
             require(copyOfNewEphemeralPublicKeyWeAreSending != null) { "Copy of outgoing remote public key is null"}
 
@@ -146,7 +146,7 @@ object Ratchet
 
                 val newState = DHRatchet.perform(
                     oldState = oldState,
-                    localEphemeralKeypair = newLocalEphemeralKeypair,
+                    localEphemeralKeypair = EphemeralKeypair.from(copyOfNewEphemeralPublicKeyWeAreSending, copyOfNewEphemeralPrivateKey!!),
                     remotePublicKey = EphemeralPublicKey(copyOfRemoteKeyBytes.copyOf())
                 )
                 result = RatchetSendResult(
@@ -255,7 +255,5 @@ object Ratchet
             throw IllegalArgumentException("Could not decode into hex")
         }
     }
-
-    const val ERROR_MESSAGE_NEW_HANDSHAKE_REQUIRED = "Ratchet error. New handshake required."
 
 }

@@ -1,5 +1,8 @@
 package org.operatorfoundation.ratchet.ratchets
 
+import org.operatorfoundation.madh.Curve25519KeyPair
+import org.operatorfoundation.madh.Curve25519PrivateKey
+import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
@@ -39,6 +42,12 @@ object DHRatchet {
         outgoingCounter: Int? = null
     ): RatchetState
     {
+        var newChainKey: ChainKey? = null
+        var newRootKey: RootKey? = null
+        var newSharedKey: SharedKey? = null
+        var newMessageKey: MessageKey? = null
+
+        var copyOfLocalEphemeralPublicKey: ByteArray? = null
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
         var copyOfRemotePublicKey: ByteArray? = null
         var copyOfOldRootKey: ByteArray? = null
@@ -53,6 +62,9 @@ object DHRatchet {
             require(oldState.isUsable) { "Tried to ratchet from an old state that has expired" }
 
             localEphemeralKeypair.consume { localPublicKey, localPrivateKey ->
+                localPublicKey.consume { localPublicKeyBytes ->
+                    copyOfLocalEphemeralPublicKey = localPublicKeyBytes.copyOf()
+                }
                 localPrivateKey.consume { localPrivateKeyBytes ->
                     copyOfLocalEphemeralPrivateKey = localPrivateKeyBytes.copyOf()
                 }
@@ -78,7 +90,7 @@ object DHRatchet {
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
             sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey.copyOf()), EphemeralPublicKey(copyOfRemotePublicKey))
-            val newSharedKey = SharedKey.fromECDH(sharedSecret)
+            newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys:
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
@@ -90,8 +102,8 @@ object DHRatchet {
                 sharedSecret,
                 contextBoundToSessionAndCounterNonces
             )
-            val newRootKey = RootKey.fromHKDF(hkdfOutput)
-            val newChainKey = ChainKey.fromHKDF(hkdfOutput)
+            newRootKey = RootKey.fromHKDF(hkdfOutput)
+            newChainKey = ChainKey.fromHKDF(hkdfOutput)
 
             newChainKey.consume {
                 copyOfNewChainKeyBytes = it
@@ -102,15 +114,20 @@ object DHRatchet {
             val newMessageNumber = messageNum + 1
             hmacOutput =
                 HMAC.perform(copyOfNewChainKeyBytes, newMessageNumber.toString().toByteArray())
-            val messageKey = MessageKey.fromHMAC(hmacOutput)
+            newMessageKey = MessageKey.fromHMAC(hmacOutput)
 
             val newState = RatchetState(
                 rootKey = RootKey(newRootKey.copyBytes()),
                 messageNumber = newMessageNumber,
                 chainKey = ChainKey(newChainKey.copyBytes()),
                 sharedKey = SharedKey(newSharedKey.copyBytes()),
-                messageKey = messageKey,
-                localEphemeralKeypair = localEphemeralKeypair.copyOf(),
+                messageKey = MessageKey(newMessageKey.copyBytes()),
+                localEphemeralKeypair = EphemeralKeypair(
+                    Curve25519KeyPair (
+                        Curve25519PublicKey(copyOfLocalEphemeralPublicKey!!.copyOf()),
+                        Curve25519PrivateKey(copyOfLocalEphemeralPrivateKey!!.copyOf())
+                    )
+                ),
                 remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyOf()),
 
                 counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
@@ -120,7 +137,11 @@ object DHRatchet {
         catch(e: Exception) {
             throw e
         } finally {
-            // TODO: Hold handles to secret key objects too so we can close them here?
+            newChainKey?.close()
+            newRootKey?.close()
+            newSharedKey?.close()
+            newMessageKey?.close()
+
             copyOfOldRootKey?.fill(0)
             copyOfRemotePublicKey?.fill(0)
             copyOfLocalEphemeralPrivateKey?.fill(0)

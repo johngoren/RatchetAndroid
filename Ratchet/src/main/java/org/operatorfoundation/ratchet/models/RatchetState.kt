@@ -8,7 +8,6 @@ import org.operatorfoundation.ratchet.models.keys.SharedKey
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 
 // TODO: Getters that check whether we are correctly consuming
-// TODO: Check that keys we are using are alive
 
 /**
  * Represents the complete state of the double ratchet algorithm at a given point.

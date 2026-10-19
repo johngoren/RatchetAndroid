@@ -20,46 +20,41 @@ class RatchetUnitTests {
     fun `newRatchetState creates initial state with initial ephemeral keys only`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
+        val alicePublicKey = aliceKeypair.publicKeyCopyForTesting
+        val bobPublicKey = bobKeypair.publicKeyCopyForTesting
 
-        aliceKeypair.consume { alicePublicKey, alicePrivateKey ->
+        val newRatchetState = Ratchet.initRatchetState(
+            aliceKeypair,
+            bobPublicKey
+        )
 
-            bobKeypair.consume { bobPublicKey, bobPrivateKey ->
-                val newRatchetState = Ratchet.initRatchetState(
-                    aliceKeypair,
-                    bobPublicKey
-                )
+        newRatchetState.use {
 
-                newRatchetState.use {
+            // Initial state should have ephemeral keys and root key
+            assertNotNull(it.rootKey)
+            assertEquals(32, it.rootKey.bytesForTesting.size)
+            assertArrayEquals(
+                alicePublicKey.bytesForTesting,
+                it.localEphemeralKeypair.publicKeyBytesForTesting
+            )
 
-                    // Initial state should have ephemeral keys and root key
-                    assertNotNull(it.rootKey)
-                    assertEquals(32, it.rootKey.bytesForTesting.size)
-                    assertArrayEquals(
-                        alicePublicKey.bytesForTesting,
-                        it.localEphemeralKeypair?.publicKeyBytesForTesting
-                    )
+            assertArrayEquals(
+                aliceKeypair.privateKeyBytesForTesting,
+                it.localEphemeralKeypair.privateKeyBytesForTesting
+            )
 
-                    it.localEphemeralKeypair?.consume { localPublicKey, localPrivateKey ->
-                        assertArrayEquals(
-                            aliceKeypair.privateKeyBytesForTesting,
-                            it.localEphemeralKeypair.privateKeyBytesForTesting
-                        )
-                    }
+            assertArrayEquals(
+                bobKeypair.publicKeyBytesForTesting,
+                it.remoteEphemeralPublicKey.bytesForTesting
+            )
 
-                    assertArrayEquals(
-                        bobKeypair.publicKeyBytesForTesting,
-                        it.remoteEphemeralPublicKey?.bytesForTesting
-                    )
-
-                    // Ephemeral state should be default
-                    assertEquals(0, it.messageNumber)
-                    assertNull(it.chainKey)
-                    assertNull(it.sharedKey)
-                    assertNull(it.messageKey)
-                    assertTrue(it.localEphemeralKeypair?.privateKeyBytesForTesting.contentEquals(aliceKeypair.privateKeyBytesForTesting))
-                    assertTrue(it.remoteEphemeralPublicKey?.bytesForTesting.contentEquals(bobKeypair.publicKeyBytesForTesting))
-                }
-            }
+            // Ephemeral state should be default
+            assertEquals(0, it.messageNumber)
+            assertNull(it.chainKey)
+            assertNull(it.sharedKey)
+            assertNull(it.messageKey)
+            assertTrue(it.localEphemeralKeypair.privateKeyBytesForTesting.contentEquals(aliceKeypair.privateKeyBytesForTesting))
+            assertTrue(it.remoteEphemeralPublicKey.bytesForTesting.contentEquals(bobKeypair.publicKeyBytesForTesting))
         }
     }
 
@@ -162,68 +157,67 @@ class RatchetUnitTests {
         var state1localEphemeralPublic: ByteArray? = null
         var state1remoteEphemeralPublic: ByteArray? = null
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        val bobPublicKeyCopy1 = bobKeypair.publicKeyCopyForTesting
+        val bobPublicKeyCopy2 = bobKeypair.publicKeyCopyForTesting
 
-            // Setup: create state with ephemeral keys
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
+        // Setup: create state with ephemeral keys
+        val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKeyCopy1)
 
-            val secureState1 = Ratchet.dhRatchet(
-                secureInitialState,
-                aliceKeypair,
-                bobPublicKey,
-            )
+        val state1 = Ratchet.dhRatchet(
+            initialState,
+            aliceKeypair,
+            bobPublicKeyCopy2,
+        )
 
-            secureState1.use { state1 ->
-                assertTrue(state1.localEphemeralKeypair?.isDestroyed == false)
+        state1.use { state1 ->
+            assertTrue(state1.localEphemeralKeypair.isDestroyed == false)
 
-                state1rootKey = state1.rootKey.bytesForTesting.copyOf()
-                state1chainKey = state1.chainKey?.bytesForTesting?.copyOf()
-                state1messageKey = state1.messageKey?.bytesForTesting?.copyOf()
-                state1sharedKey = state1.sharedKey?.bytesForTesting?.copyOf()
-                state1localEphemeralPublic = state1.localEphemeralKeypair?.publicKeyBytesForTesting?.copyOf()
-                state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey?.bytesForTesting?.copyOf()
+            state1rootKey = state1.rootKey.bytesForTesting.copyOf()
+            state1chainKey = state1.chainKey?.bytesForTesting?.copyOf()
+            state1messageKey = state1.messageKey?.bytesForTesting?.copyOf()
+            state1sharedKey = state1.sharedKey?.bytesForTesting?.copyOf()
+            state1localEphemeralPublic = state1.localEphemeralKeypair.publicKeyBytesForTesting.copyOf()
+            state1remoteEphemeralPublic = state1.remoteEphemeralPublicKey.bytesForTesting?.copyOf()
 
-                state1localPrivateKey = state1.localEphemeralKeypair?.privateKeyBytesForTesting?.copyOf()
+            state1localPrivateKey = state1.localEphemeralKeypair.privateKeyBytesForTesting?.copyOf()
 
-                // Advance without new keys
-                Ratchet.symmetricRatchetFrom(secureState1).use { state2 ->
+            // Advance without new keys
+            val state2 = Ratchet.symmetricRatchetFrom(state1)
+            val copyOfState2 = RatchetState(state2)
+            copyOfState2.use {
+                // Message number should increment
+                assertEquals(2, state2.messageNumber)
 
-                    // Message number should increment
-                    assertEquals(2, state2.messageNumber)
+                // Chain key and message key should change
+                assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytesForTesting))
+                assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytesForTesting))
 
-                    // TODO: Feels like something wonky is happening here with ::bytesForTesting
+                // Shared key and ephemeral keys should stay the same - it's not that kind of ratchet
+                assertArrayEquals(
+                    state1sharedKey!!,
+                    state2.sharedKey!!.bytesForTesting
+                )
+                assertArrayEquals(
+                    state1localEphemeralPublic,
+                    state2.localEphemeralKeypair.publicKeyBytesForTesting
+                )
 
-                    // Chain key and message key should change
-                    assertFalse(state1chainKey!!.contentEquals(state2.chainKey!!.bytesForTesting))
-                    assertFalse(state1messageKey!!.contentEquals(state2.messageKey!!.bytesForTesting))
-
-                    // Shared key and ephemeral keys should stay the same - it's not that kind of ratchet
+                state2.localEphemeralKeypair.consume { state2PublicKey, state2PrivateKey ->
                     assertArrayEquals(
-                        state1sharedKey!!,
-                        state2.sharedKey!!.bytesForTesting
+                        state1localPrivateKey,
+                        state2PrivateKey.bytesForTesting
                     )
+
                     assertArrayEquals(
-                        state1localEphemeralPublic,
-                        state2.localEphemeralKeypair?.publicKeyBytesForTesting
+                        state1remoteEphemeralPublic,
+                        state2.remoteEphemeralPublicKey?.bytesForTesting
                     )
 
-                    state2.localEphemeralKeypair?.consume { state2PublicKey, state2PrivateKey ->
-                        assertArrayEquals(
-                            state1localPrivateKey,
-                            state2PrivateKey.bytesForTesting
-                        )
-
-                        assertArrayEquals(
-                            state1remoteEphemeralPublic,
-                            state2.remoteEphemeralPublicKey?.bytesForTesting
-                        )
-
-                    }
-
-
-                    // Root key should stay the same
-                    assertArrayEquals(state1rootKey, state2.rootKey.bytesForTesting)
                 }
+
+
+                // Root key should stay the same
+                assertArrayEquals(state1rootKey, state2.rootKey.bytesForTesting)
             }
         }
     }
@@ -253,44 +247,38 @@ class RatchetUnitTests {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        var bobPublicKey0: EphemeralPublicKey? = null
+        val bobPublicKey0copy1 = bobKeypair.publicKeyCopyForTesting
+        val bobPublicKey0copy2 = bobKeypair.publicKeyCopyForTesting
 
-        bobKeypair.consume { bobPublicKey, _ ->
-            bobPublicKey0 = bobPublicKey
-        }
+        val alice0 = Ratchet.initRatchetState(aliceKeypair, bobPublicKey0copy1)
+        val alice1 = Ratchet.ratchetForReceive(alice0, bobPublicKey0copy2)
 
-        val alice0 = Ratchet.initRatchetState(aliceKeypair, bobPublicKey0!!)
+        alice1.use { state1 ->
 
-        alice0.use { initialState ->
+            val messageKeys = mutableListOf(state1.messageKey!!.bytesForTesting)
+            var previousState = RatchetState(state1)
 
-            Ratchet.ratchetForReceive(alice0, bobPublicKey0)
-                .use { state1 ->
+            // Generate 5 more message keys
+            repeat(5)
+            {
 
-                    val messageKeys = mutableListOf(state1.messageKey!!.bytesForTesting)
-                    var previousState = RatchetState(state1)
-
-                    // Generate 5 more message keys
-                    repeat(5)
-                    {
-
-                        Ratchet.symmetricRatchetFrom(previousState)
-                            .use { newState ->
-                                messageKeys.add(newState.messageKey!!.bytesForTesting)
-                                previousState = RatchetState(newState)
-                            }
-
+                Ratchet.symmetricRatchetFrom(previousState)
+                    .use { newState ->
+                        messageKeys.add(newState.messageKey!!.bytesForTesting)
+                        previousState = RatchetState(newState)
                     }
 
-                    // All message keys should be unique
-                    for (i in messageKeys.indices) {
-                        for (j in i + 1 until messageKeys.size) {
-                            assertFalse(
-                                "Message keys $i and $j should be different",
-                                messageKeys[i].contentEquals(messageKeys[j])
-                            )
-                        }
-                    }
+            }
+
+            // All message keys should be unique
+            for (i in messageKeys.indices) {
+                for (j in i + 1 until messageKeys.size) {
+                    assertFalse(
+                        "Message keys $i and $j should be different",
+                        messageKeys[i].contentEquals(messageKeys[j])
+                    )
                 }
+            }
         }
     }
 

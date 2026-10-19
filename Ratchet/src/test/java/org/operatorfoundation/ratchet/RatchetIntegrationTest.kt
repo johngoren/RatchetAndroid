@@ -13,8 +13,6 @@ import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.Encrypt
 
 
-// TODO: Test that local ephemeral keypair is changing at all!
-
 class RatchetIntegrationTest {
 
     @Test

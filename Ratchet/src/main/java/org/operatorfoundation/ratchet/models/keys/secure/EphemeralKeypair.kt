@@ -24,6 +24,7 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable
         check(!isDestroyed) { "Ephemeral keypair has been destroyed "}
         if (!isDestroyed) {
             block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
+            close()
         }
     }
 
@@ -74,9 +75,27 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable
             return _publicKeyBytes
         }
 
+    @VisibleForTesting
+    val publicKeyCopyForTesting: EphemeralPublicKey
+        get() {
+            return EphemeralPublicKey(_publicKeyBytes.copyOf())
+        }
+
     val privateKeyBytesForTesting: ByteArray
         get() {
             return _privateKeyBytes
         }
 
+    companion object {
+
+        fun from(publicBytes: ByteArray, privateBytes: ByteArray): EphemeralKeypair {
+            return EphemeralKeypair(
+                Curve25519KeyPair(
+                    Curve25519PublicKey(publicBytes),
+                    Curve25519PrivateKey(privateBytes)
+                )
+            )
+        }
+
+    }
 }
