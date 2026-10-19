@@ -20,17 +20,28 @@ import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
  * @property remoteEphemeralPublicKey The remote party's ephemeral public key
  */
 class RatchetState(
-    val rootKey: RootKey,
-    val messageNumber: Int = 0,
-    val chainKey: ChainKey? = null,
-    val sharedKey: SharedKey? = null,
-    val messageKey: MessageKey? = null,
-    val localEphemeralKeypair: EphemeralKeypair,
-    val remoteEphemeralPublicKey: EphemeralPublicKey,
-    val sessionId: ByteArray = ByteArray(16),
-    var counterLastReceivedKeyNum: Int = 0,
-    var counterLastSentKeyNum: Int = 0
+    rootKey: RootKey,
+    messageNumber: Int = 0,
+    chainKey: ChainKey? = null,
+    sharedKey: SharedKey? = null,
+    messageKey: MessageKey? = null,
+    localEphemeralKeypair: EphemeralKeypair,
+    remoteEphemeralPublicKey: EphemeralPublicKey,
+    sessionId: ByteArray = ByteArray(16),
+    counterLastReceivedKeyNum: Int = 0,
+    counterLastSentKeyNum: Int = 0
 ): AutoCloseable {
+
+    val rootKey = RootKey(rootKey.copyBytes())
+    val messageNumber = messageNumber
+    val chainKey = if (chainKey != null) { ChainKey(chainKey.copyBytes()) } else null
+    val sharedKey = if (sharedKey != null) { SharedKey(sharedKey.copyBytes()) } else null
+    val messageKey = if (messageKey != null) { MessageKey(messageKey.copyBytes()) } else null
+    val localEphemeralKeypair = localEphemeralKeypair.copyOf()
+    val remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes())
+    val sessionId = sessionId.copyOf()
+    val counterLastReceivedKeyNum = counterLastReceivedKeyNum
+    val counterLastSentKeyNum = counterLastSentKeyNum
 
     private var isDestroyed: Boolean = false
 

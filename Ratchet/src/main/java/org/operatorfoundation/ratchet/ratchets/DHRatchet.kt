@@ -106,9 +106,7 @@ object DHRatchet {
             newRootKey = RootKey.fromHKDF(hkdfOutput)
             newChainKey = ChainKey.fromHKDF(hkdfOutput)
 
-            newChainKey.consume {
-                copyOfNewChainKeyBytes = it
-            }
+            copyOfNewChainKeyBytes = newChainKey.copyBytes()
             require(copyOfNewChainKeyBytes != null) { "New chain key bytes were null"}
 
             // Increment message number and derive message key: M_n = HMAC(C_n, n)
@@ -118,19 +116,18 @@ object DHRatchet {
             newMessageKey = MessageKey.fromHMAC(hmacOutput)
 
             val newState = RatchetState(
-                rootKey = RootKey(newRootKey.copyBytes()),
+                rootKey = newRootKey,
                 messageNumber = newMessageNumber,
-                chainKey = ChainKey(copyOfNewChainKeyBytes.copyOf()),
-                sharedKey = SharedKey(newSharedKey.copyBytes()),
-                messageKey = MessageKey(newMessageKey.copyBytes()),
+                chainKey = newChainKey,
+                sharedKey = newSharedKey,
+                messageKey = newMessageKey,
                 localEphemeralKeypair = EphemeralKeypair(
                     Curve25519KeyPair (
-                        Curve25519PublicKey(copyOfLocalEphemeralPublicKey!!.copyOf()),
-                        Curve25519PrivateKey(copyOfLocalEphemeralPrivateKey!!.copyOf())
+                        Curve25519PublicKey(copyOfLocalEphemeralPublicKey!!),
+                        Curve25519PrivateKey(copyOfLocalEphemeralPrivateKey!!)
                     )
                 ),
-                remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyOf()),
-
+                remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey),
                 counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
             )
             newState
