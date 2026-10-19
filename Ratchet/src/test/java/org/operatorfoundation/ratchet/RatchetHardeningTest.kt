@@ -1,15 +1,15 @@
 package org.operatorfoundation.ratchet
 
+import org.junit.Assert
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.fail
 import org.junit.Test
-import org.operatorfoundation.madh.Curve25519PublicKey
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.Encrypt
-import java.security.PublicKey
 import kotlin.test.assertTrue
 
 class RatchetHardeningTest {
@@ -25,7 +25,7 @@ class RatchetHardeningTest {
             remotePublicKey = public
         }
 
-        val ratchetState = DoubleRatchet.initRatchetState(
+        val ratchetState = Ratchet.initRatchetState(
             localKeypair,
             remotePublicKey!!
         )
@@ -66,18 +66,18 @@ class RatchetHardeningTest {
             copyOfBobPublicKey = public
         }
 
-        val initialStateAlice = DoubleRatchet.initRatchetState(
+        val initialStateAlice = Ratchet.initRatchetState(
             aliceKeypair,
             copyOfBobPublicKey!!
         )
 
-        val initialStateBob = DoubleRatchet.initRatchetState(
+        val initialStateBob = Ratchet.initRatchetState(
             bobKeypair,
             copyOfAlicePublicKey!!
         )
 
         // Bob ratchets and sends the first message
-        val bobRatchetsResult = DoubleRatchet.ratchetForSend(initialStateBob)
+        val bobRatchetsResult = Ratchet.ratchetForSend(initialStateBob)
         val bobState1 = bobRatchetsResult.state
         firstBobEphemeralPublicKey = bobRatchetsResult.newEphemeralPublicKey
 
@@ -90,7 +90,7 @@ class RatchetHardeningTest {
 
         // This ciphertext is then sent over to the wire. Alice receives and decrypts it OK. So far so good
 
-        val aliceState1 = DoubleRatchet.ratchetForReceive(initialStateAlice, firstBobEphemeralPublicKey)
+        val aliceState1 = Ratchet.ratchetForReceive(initialStateAlice, firstBobEphemeralPublicKey)
         var messageKeyAlice1: MessageKey? = null
         aliceState1.use { alice1StatePeek ->
             messageKeyAlice1 = alice1StatePeek.messageKey
@@ -101,7 +101,7 @@ class RatchetHardeningTest {
 
         reusedBobPublicKey = firstBobEphemeralPublicKey
 
-        val bobState2 = DoubleRatchet.ratchetForSend(bobState1).state
+        val bobState2 = Ratchet.ratchetForSend(bobState1).state
         var messageKeyBob2: MessageKey? = null
 
         bobState2.use { statePeek ->
@@ -111,7 +111,7 @@ class RatchetHardeningTest {
 
         // Alice receives this but with the old public key.
 
-        val aliceState2 = DoubleRatchet.ratchetForReceive(aliceState1, reusedBobPublicKey)
+        val aliceState2 = Ratchet.ratchetForReceive(aliceState1, reusedBobPublicKey)
         var messageKeyAlice2: MessageKey? = null
         aliceState2.use { statePeek ->
             messageKeyAlice2 = statePeek.messageKey
@@ -124,5 +124,29 @@ class RatchetHardeningTest {
             // TODO: Test for failure here
         }
 
+    }
+
+    // ========== Object lockdown Tests ==========
+
+    @Test
+    fun `Key objects cannot be compared or scrutinized`() {
+        val key1 = MessageKey(ByteArray(32))
+        val key2 = MessageKey(ByteArray(32))
+
+        assert(key1.toString().contains("redacted"))
+
+        try {
+            key1.hashCode()
+            fail("Should have thrown SecurityException")
+        } catch (e: SecurityException) {
+            Assert.assertTrue(e.message!!.contains("security"))
+        }
+
+        try {
+            (key1 == key2)
+            fail("Should have thrown SecurityException")
+        } catch (e: SecurityException) {
+            Assert.assertTrue(e.message!!.contains("security"))
+        }
     }
 }

@@ -18,7 +18,7 @@ object SymmetricRatchet {
 
     fun perform(previousState: RatchetState): RatchetState
     {
-        var nextRatchetState: RatchetState? = null
+        var newRatchetState: RatchetState? = null
         var copyOfOldChainKey: ByteArray? = null
         var copyOfNewChainKey: ByteArray? = null
         var chainHmacOutput: ByteArray? = null
@@ -26,10 +26,11 @@ object SymmetricRatchet {
 
         return try {
             previousState.use { oldState ->
+                require(oldState.isUsable) { "Tried to ratchet from an old state that was expired." }
 
                 // Ensure we have a chain key to work with
                 requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewKey first." }
-                require(oldState.chainKey.isUsable()) { "Tried to use a chain key that had been destroyed" }
+                require(oldState.chainKey.isUsable()) { "Tried to ratchet from a chain key that had been destroyed" }
 
                 oldState.chainKey.consume {
                     copyOfOldChainKey = it
@@ -56,17 +57,15 @@ object SymmetricRatchet {
                     data=newMessageNumber.toString().toByteArray()
                 )
 
-                // TODO: Make sure this secondary constructor makes defensive copies.
                 val newState = RatchetState(
-                    previous = oldState,
+                    oldState = oldState,
                     messageNumber = newMessageNumber,
-                    chainKey = ChainKey(newChainKey.deepCopyBytes()),
+                    chainKey = ChainKey(newChainKey.copyBytes()),
                     messageKey = MessageKey.fromHMAC(messageHmacOutput.copyOf())
                 )
-                nextRatchetState = newState
+                newRatchetState = newState
             }
-
-            nextRatchetState ?: throw Exception("Null ratchet state")
+            newRatchetState ?: throw Exception("Null ratchet state")
         }
         catch(e: Exception) {
             throw e // TODO: More specific error-handling
@@ -75,6 +74,7 @@ object SymmetricRatchet {
             chainHmacOutput?.fill(0)
             messageHmacOutput?.fill(0)
             copyOfOldChainKey?.fill(0)
+            copyOfNewChainKey?.fill(0)
             previousState.close()
         }
     }

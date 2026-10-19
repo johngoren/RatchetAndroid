@@ -1,7 +1,6 @@
 package org.operatorfoundation.ratchet.utils
 
-import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.Secret

@@ -156,7 +156,6 @@ class PlaintextTests {
         )
     }
 
-
     @Test
     fun `PlaintextMessage handles UTF-8 text`() {
         val originalText = "Hello 世界 🌍"

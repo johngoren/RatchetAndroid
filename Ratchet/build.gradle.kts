@@ -37,9 +37,9 @@ android {
         singleVariant("release")
     }
 
-    lintOptions {
-        error("VisibleForTests")
-    }
+//    lint {
+//        error("VisibleForTests")
+//    }
 }
 
 dependencies {

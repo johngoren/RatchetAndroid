@@ -25,7 +25,7 @@ import org.operatorfoundation.ratchet.utils.HKDF
 
 class RedoHandshakeException(message: String = "Something went wrong. You need to renegotiate the handshake"): Exception(message)
 
-object DoubleRatchet
+object Ratchet
 {
     const val NUM_BYTES_IN_KEY = 32
     const val NUM_BYTES_IN_SESSION_NONCE = 16   // TODO: Decide on length and note down justification
@@ -94,7 +94,7 @@ object DoubleRatchet
                     rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
                     sessionId = copyOfSessionId.copyOf(),
                     localEphemeralKeypair = copyOfInitialLocalKeypair,
-                    remotePublicEphemeralKey = copyOfRemotePublicKey
+                    remoteEphemeralPublicKey = copyOfRemotePublicKey
                 )
             }
             newState ?: throw RedoHandshakeException("Something went wrong in initialization")
@@ -134,12 +134,12 @@ object DoubleRatchet
 
         return try {
             newLocalEphemeralKeypair.consume { public, _ ->
-                copyOfNewEphemeralPublicKeyWeAreSending = public.deepCopyBytes()
+                copyOfNewEphemeralPublicKeyWeAreSending = public.copyBytes()
             }
             require(copyOfNewEphemeralPublicKeyWeAreSending != null) { "Copy of outgoing remote public key is null"}
 
             oldState.use {
-                it.remotePublicEphemeralKey?.consume {
+                it.remoteEphemeralPublicKey?.consume {
                     copyOfRemoteKeyBytes = it.copyOf()
                 }
                 require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
@@ -181,9 +181,8 @@ object DoubleRatchet
         var copyOfIncomingEphemeralPublicKey: EphemeralPublicKey? = null
 
         return try {
-            require(oldState.localEphemeralKeypair != null) { throw RedoHandshakeException("No local ephemeral keys available") }
             copyOfLocalEphemeralKeypair = oldState.localEphemeralKeypair.copyOf()
-            copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.deepCopyBytes())
+            copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.copyBytes())
 
             incomingCounter?.also {
                 validateCounter(incomingCounter, oldState.counterLastReceivedKeyNum)
@@ -218,7 +217,7 @@ object DoubleRatchet
      * Starting points for use by client application
      */
 
-    fun symmetricRatchet(oldState: RatchetState): RatchetState {
+    fun symmetricRatchetFrom(oldState: RatchetState): RatchetState {
         return SymmetricRatchet.perform(oldState)
     }
 

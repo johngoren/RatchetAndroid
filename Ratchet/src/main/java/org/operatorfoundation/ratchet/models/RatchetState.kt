@@ -18,7 +18,7 @@ import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
  * @property sharedKey The current shared key derived from ECDH
  * @property messageKey The current message key for encryption/decryption
  * @property localEphemeralKeypair The local ephemeral key pair
- * @property remotePublicEphemeralKey The remote party's ephemeral public key
+ * @property remoteEphemeralPublicKey The remote party's ephemeral public key
  */
 class RatchetState(
     val rootKey: RootKey,
@@ -27,45 +27,55 @@ class RatchetState(
     val sharedKey: SharedKey? = null,
     val messageKey: MessageKey? = null,
     val localEphemeralKeypair: EphemeralKeypair,
-    val remotePublicEphemeralKey: EphemeralPublicKey,
+    val remoteEphemeralPublicKey: EphemeralPublicKey,
     val sessionId: ByteArray = ByteArray(16),
     var counterLastReceivedKeyNum: Int = 0,
     var counterLastSentKeyNum: Int = 0
 ): AutoCloseable {
 
-    // TODO: Make copies.
+    private var isDestroyed: Boolean = false
 
-    constructor(previous: RatchetState,
-                rootKey: RootKey = previous.rootKey,
-                messageNumber: Int = previous.messageNumber,
-                chainKey: ChainKey? = previous.chainKey,
-                sharedKey: SharedKey? = previous.sharedKey,
-                messageKey: MessageKey? = previous.messageKey,
-                localEphemeralKeypair: EphemeralKeypair = previous.localEphemeralKeypair,
-                remoteEphemeralPublicKey: EphemeralPublicKey = previous.remotePublicEphemeralKey,
-                sessionId: ByteArray = previous.sessionId,
-                counterLastReceivedKeyNum: Int = previous.counterLastReceivedKeyNum,
-                counterLastSentKeyNum: Int = previous.counterLastSentKeyNum
+    val isUsable: Boolean
+        get() {
+            return !isDestroyed
+        }
+
+    constructor(oldState: RatchetState,
+                rootKey: RootKey = oldState.rootKey,
+                messageNumber: Int = oldState.messageNumber,
+                chainKey: ChainKey? = oldState.chainKey,
+                sharedKey: SharedKey? = oldState.sharedKey,
+                messageKey: MessageKey? = oldState.messageKey,
+                localEphemeralKeypair: EphemeralKeypair = oldState.localEphemeralKeypair,
+                remoteEphemeralPublicKey: EphemeralPublicKey = oldState.remoteEphemeralPublicKey,
+                sessionId: ByteArray = oldState.sessionId,
+                counterLastReceivedKeyNum: Int = oldState.counterLastReceivedKeyNum,
+                counterLastSentKeyNum: Int = oldState.counterLastSentKeyNum
     ) : this(
-            rootKey = RootKey(rootKey.deepCopyBytes()),
+            rootKey = RootKey(rootKey.copyBytes()),
             messageNumber = messageNumber,
-            chainKey = if (chainKey != null) { ChainKey(chainKey.deepCopyBytes()) } else null,
-            sharedKey = if (sharedKey != null) { SharedKey(sharedKey.deepCopyBytes()) } else null,
-            messageKey = if (messageKey != null) { MessageKey(messageKey.deepCopyBytes())} else null,
+            chainKey = if (chainKey != null) { ChainKey(chainKey.copyBytes()) } else null,
+            sharedKey = if (sharedKey != null) { SharedKey(sharedKey.copyBytes()) } else null,
+            messageKey = if (messageKey != null) { MessageKey(messageKey.copyBytes())} else null,
             localEphemeralKeypair = localEphemeralKeypair.copyOf(),
-            remotePublicEphemeralKey = EphemeralPublicKey(remoteEphemeralPublicKey.deepCopyBytes()),
+            remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes()),
             sessionId = sessionId,
             counterLastReceivedKeyNum = counterLastReceivedKeyNum,
             counterLastSentKeyNum = counterLastSentKeyNum
         ) {
+        require(oldState.isUsable) { "Tried to copy a state that has expired."}
     }
 
+
     override fun close() {
+        isDestroyed = true
+
         rootKey.close()
         chainKey?.close()
         sharedKey?.close()
         messageKey?.close()
         localEphemeralKeypair.close()
-        remotePublicEphemeralKey.close()
+        remoteEphemeralPublicKey.close()
     }
+
 }

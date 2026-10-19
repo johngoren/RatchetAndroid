@@ -1,6 +1,6 @@
 package org.operatorfoundation.ratchet.ratchets
 
-import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
@@ -50,6 +50,8 @@ object DHRatchet {
         var copyOfNewChainKeyBytes: ByteArray? = null
 
         return try {
+            require(oldState.isUsable) { "Tried to ratchet from an old state that has expired" }
+
             localEphemeralKeypair.consume { localPublicKey, localPrivateKey ->
                 localPrivateKey.consume { localPrivateKeyBytes ->
                     copyOfLocalEphemeralPrivateKey = localPrivateKeyBytes.copyOf()
@@ -62,7 +64,7 @@ object DHRatchet {
 
             oldState.use {
                 it.apply {
-                    copyOfOldRootKey = it.rootKey.deepCopyBytes()
+                    copyOfOldRootKey = it.rootKey.copyBytes()
                     copyOfSessionId = sessionId
                     messageNum = messageNumber
                 }
@@ -103,13 +105,13 @@ object DHRatchet {
             val messageKey = MessageKey.fromHMAC(hmacOutput)
 
             val newState = RatchetState(
-                rootKey = newRootKey,
+                rootKey = RootKey(newRootKey.copyBytes()),
                 messageNumber = newMessageNumber,
-                chainKey = newChainKey,
-                sharedKey = newSharedKey,
+                chainKey = ChainKey(newChainKey.copyBytes()),
+                sharedKey = SharedKey(newSharedKey.copyBytes()),
                 messageKey = messageKey,
                 localEphemeralKeypair = localEphemeralKeypair.copyOf(),
-                remotePublicEphemeralKey = EphemeralPublicKey(copyOfRemotePublicKey.copyOf()),
+                remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyOf()),
 
                 counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
             )
@@ -118,6 +120,7 @@ object DHRatchet {
         catch(e: Exception) {
             throw e
         } finally {
+            // TODO: Hold handles to secret key objects too so we can close them here?
             copyOfOldRootKey?.fill(0)
             copyOfRemotePublicKey?.fill(0)
             copyOfLocalEphemeralPrivateKey?.fill(0)

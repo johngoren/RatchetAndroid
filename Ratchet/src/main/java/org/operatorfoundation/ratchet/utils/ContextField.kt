@@ -1,7 +1,7 @@
 package org.operatorfoundation.ratchet.utils
 
-import org.operatorfoundation.ratchet.DoubleRatchet.NUM_BYTES_IN_SESSION_NONCE
-import org.operatorfoundation.ratchet.DoubleRatchet.RADIX_FOR_COUNTER_ENCODING
+import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_SESSION_NONCE
+import org.operatorfoundation.ratchet.Ratchet.RADIX_FOR_COUNTER_ENCODING
 import java.nio.ByteBuffer
 
 object ContextField {
