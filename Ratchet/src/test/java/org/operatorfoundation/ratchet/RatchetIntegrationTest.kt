@@ -239,39 +239,41 @@ class RatchetIntegrationTest {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
+        lateinit var copyOfBobPublicKey: EphemeralPublicKey
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+            copyOfBobPublicKey = bobPublicKey
+        }
 
-            val secureInitialState = Ratchet.initRatchetState(
-                aliceKeypair,
-                bobPublicKey
-            )
+        val initialState = Ratchet.initRatchetState(
+            aliceKeypair,
+            copyOfBobPublicKey
+        )
 
-            secureInitialState.use { initialState ->
+        initialState.use { initialState ->
 
-                // Perform initial DH ratchet
-                val result = Ratchet.ratchetForSend(secureInitialState)
-                var currentState = result.state
+            // Perform initial DH ratchet
+            val result = Ratchet.ratchetForSend(initialState)
+            var currentState = RatchetState(result.state)
 
-                val messages = listOf("First", "Second", "Third")
+            val messages = listOf("First", "Second", "Third")
 
-                for (messageText in messages) {
-                    val plaintext = PlaintextMessage(
-                        PlaintextMessageType.UNCOMPRESSED_TEXT,
-                        messageText.toByteArray()
-                    )
+            for (messageText in messages) {
+                val plaintext = PlaintextMessage(
+                    PlaintextMessageType.UNCOMPRESSED_TEXT,
+                    messageText.toByteArray()
+                )
 
-                    currentState.use { currentStatePeek ->
-                        val ciphertext =
-                            Encrypt.perform(currentStatePeek.messageKey!!, plaintext)
-                        val decrypted =
-                            Decrypt.perform(currentStatePeek.messageKey!!, ciphertext)
+                currentState.use { currentStatePeek ->
+                    val ciphertext =
+                        Encrypt.perform(currentStatePeek.messageKey!!, plaintext)
+                    val decrypted =
+                        Decrypt.perform(currentStatePeek.messageKey!!, ciphertext)
 
-                        assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
+                    assertArrayEquals(plaintext.bytes, decrypted!!.bytes)
 
-                        // Advance ratchet for next message
-                        Ratchet.symmetricRatchetFrom(currentState).use {
-                            currentState = it
-                        }
+                    // Advance ratchet for next message
+                    Ratchet.symmetricRatchetFrom(currentState).use {
+                        currentState = RatchetState(it)
                     }
                 }
             }
