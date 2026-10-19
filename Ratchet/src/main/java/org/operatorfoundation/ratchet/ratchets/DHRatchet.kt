@@ -47,11 +47,13 @@ object DHRatchet {
         var newSharedKey: SharedKey? = null
         var newMessageKey: MessageKey? = null
 
+        var copyOfOldState: RatchetState? = null
         var copyOfLocalEphemeralPublicKey: ByteArray? = null
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
         var copyOfRemotePublicKey: ByteArray? = null
         var copyOfOldRootKey: ByteArray? = null
         var copyOfSessionId: ByteArray? = null
+        var copyOfSharedSecret: ByteArray? = null
         var messageNum: Int? = null
         var sharedSecret: Secret? = null
         var hkdfOutput: ByteArray? = null
@@ -61,20 +63,19 @@ object DHRatchet {
         return try {
             require(oldState.isUsable) { "Tried to ratchet from an old state that has expired" }
 
+            copyOfOldState = RatchetState(oldState)
+
             localEphemeralKeypair.consume { localPublicKey, localPrivateKey ->
-                localPublicKey.consume { localPublicKeyBytes ->
-                    copyOfLocalEphemeralPublicKey = localPublicKeyBytes.copyOf()
-                }
-                localPrivateKey.consume { localPrivateKeyBytes ->
-                    copyOfLocalEphemeralPrivateKey = localPrivateKeyBytes.copyOf()
-                }
-                require(copyOfLocalEphemeralPrivateKey?.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
+                    copyOfLocalEphemeralPublicKey = localPublicKey.copyBytes()
+                    copyOfLocalEphemeralPrivateKey = localPrivateKey.copyBytes()
             }
+            require(copyOfLocalEphemeralPrivateKey?.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
+
             remotePublicKey.consume { remotePublicKeyBytes ->
-                copyOfRemotePublicKey = remotePublicKeyBytes
+                copyOfRemotePublicKey = remotePublicKeyBytes.copyOf()
             }
 
-            oldState.use {
+            copyOfOldState.use {
                 it.apply {
                     copyOfOldRootKey = it.rootKey.copyBytes()
                     copyOfSessionId = sessionId
@@ -119,7 +120,7 @@ object DHRatchet {
             val newState = RatchetState(
                 rootKey = RootKey(newRootKey.copyBytes()),
                 messageNumber = newMessageNumber,
-                chainKey = ChainKey(newChainKey.copyBytes()),
+                chainKey = ChainKey(copyOfNewChainKeyBytes.copyOf()),
                 sharedKey = SharedKey(newSharedKey.copyBytes()),
                 messageKey = MessageKey(newMessageKey.copyBytes()),
                 localEphemeralKeypair = EphemeralKeypair(
@@ -149,7 +150,7 @@ object DHRatchet {
             sharedSecret?.close()
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)
-            oldState.close()
+            copyOfOldState?.close()
         }
     }
 

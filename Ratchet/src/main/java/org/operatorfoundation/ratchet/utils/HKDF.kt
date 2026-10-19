@@ -10,9 +10,11 @@ object HKDF {
 
     fun forRootAndChainMaterial(oldRootKey: ByteArray, sharedSecret: Secret, info: ByteArray): ByteArray
     {
+        var copyOfSharedSecret = Secret(sharedSecret.copyBytes())
         var result: ByteArray? = null
 
-        sharedSecret.consume { sharedKey ->
+
+        copyOfSharedSecret.consume { sharedKey ->
             // HKDF-Extract: PRK = HMAC(salt=oldRootKey, ikm=sharedKey)
             val prk = HMAC.perform(oldRootKey, sharedKey)
 

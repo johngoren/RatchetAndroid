@@ -12,12 +12,13 @@ object SymmetricRatchet {
      * This should be called when sending/receiving multiple messages
      * without a key change (consecutive messages, same sender).
      *
-     * @param previousState The current ratchet state
+     * @param oldState The current ratchet state
      * @return The updated ratchet state with new chain and message keys
      */
 
-    fun perform(previousState: RatchetState): RatchetState
+    fun perform(oldState: RatchetState): RatchetState
     {
+        var copyOfOldState: RatchetState? = null
         var newRatchetState: RatchetState? = null
         var copyOfOldChainKey: ByteArray? = null
         var copyOfNewChainKey: ByteArray? = null
@@ -25,20 +26,22 @@ object SymmetricRatchet {
         var messageHmacOutput: ByteArray? = null
 
         return try {
-            previousState.use { oldState ->
-                require(oldState.isUsable) { "Tried to ratchet from an old state that was expired." }
+            require(oldState.isUsable) { "Tried to ratchet from an old state that was expired." }
+
+            copyOfOldState = RatchetState(oldState)
+            copyOfOldState.use {
 
                 // Ensure we have a chain key to work with
-                requireNotNull(oldState.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewKey first." }
-                require(oldState.chainKey.isUsable()) { "Tried to ratchet from a chain key that had been destroyed" }
+                requireNotNull(it.chainKey) { "Cannot ratchet without a chain key. Call ratchetInternalWithNewKey first." }
+                require(it.chainKey.isUsable()) { "Tried to ratchet from a chain key that had been destroyed" }
 
-                oldState.chainKey.consume {
+                it.chainKey?.consume {
                     copyOfOldChainKey = it
                 }
                 require(copyOfOldChainKey != null) { "Tried to use chain key bytes that were null" }
 
                 // Increment message number
-                val newMessageNumber = oldState.messageNumber + 1
+                val newMessageNumber = copyOfOldState.messageNumber + 1
 
                 // Derive new chain key: C_n = HMAC(C_{n-1}, n)
                 chainHmacOutput = HMAC.perform(
@@ -58,9 +61,9 @@ object SymmetricRatchet {
                 )
 
                 val newState = RatchetState(
-                    oldState = oldState,
+                    oldState = copyOfOldState,
                     messageNumber = newMessageNumber,
-                    chainKey = ChainKey(newChainKey.copyBytes()),
+                    chainKey = ChainKey(copyOfNewChainKey.copyOf()),
                     messageKey = MessageKey.fromHMAC(messageHmacOutput.copyOf())
                 )
                 newRatchetState = newState
@@ -75,7 +78,7 @@ object SymmetricRatchet {
             messageHmacOutput?.fill(0)
             copyOfOldChainKey?.fill(0)
             copyOfNewChainKey?.fill(0)
-            previousState.close()
+            copyOfOldState?.close()
         }
     }
 

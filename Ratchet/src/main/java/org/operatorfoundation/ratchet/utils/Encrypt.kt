@@ -24,9 +24,7 @@ object Encrypt {
         var aesKey: AesGcmKey? = null
 
         try {
-            key.consume { bytes ->
-                copyOfKeyBytes = bytes.copyOf()
-            }
+            copyOfKeyBytes = key.copyBytes()
             require(copyOfKeyBytes != null) { "Tried to use key bytes copy but was null"}
 
             // Serialize the plaintext message to bytes

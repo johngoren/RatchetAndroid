@@ -19,10 +19,7 @@ object Decrypt {
         var aesKey: AesGcmKey? = null
         var decryptedBytes: ByteArray? = null
 
-        var copyOfKeyBytes: ByteArray? = null
-        key.consume { bytes ->
-            copyOfKeyBytes = bytes.copyOf()
-        }
+        val copyOfKeyBytes: ByteArray? = key.copyBytes()
         require(copyOfKeyBytes != null) { "Tried to use copy of message key bytes but they were null" }
 
         return try {

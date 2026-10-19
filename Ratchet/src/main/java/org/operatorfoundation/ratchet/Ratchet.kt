@@ -99,7 +99,6 @@ object Ratchet
             newState ?: throw RedoHandshakeException("Something went wrong in initialization")
         }
         catch(e: Exception) {
-            newState?.close()
             throw RedoHandshakeException(e.message ?: "Something went wrong in initialization")
         }
         finally {
@@ -126,6 +125,7 @@ object Ratchet
     {
         var result: RatchetSendResult? = null
 
+        val copyOfOldState = RatchetState(oldState)
         val newLocalEphemeralKeypair = generateEphemeralKeypair()
         var copyOfRemoteKeyBytes: ByteArray? = null
         var copyOfNewEphemeralPublicKeyWeAreSending: ByteArray? = null
@@ -138,14 +138,14 @@ object Ratchet
             }
             require(copyOfNewEphemeralPublicKeyWeAreSending != null) { "Copy of outgoing remote public key is null"}
 
-            oldState.use {
+            copyOfOldState.use {
                 it.remoteEphemeralPublicKey?.consume {
                     copyOfRemoteKeyBytes = it.copyOf()
                 }
                 require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
 
                 val newState = DHRatchet.perform(
-                    oldState = oldState,
+                    oldState = copyOfOldState,
                     localEphemeralKeypair = EphemeralKeypair.from(copyOfNewEphemeralPublicKeyWeAreSending, copyOfNewEphemeralPrivateKey!!),
                     remotePublicKey = EphemeralPublicKey(copyOfRemoteKeyBytes.copyOf())
                 )
@@ -160,6 +160,7 @@ object Ratchet
             throw RedoHandshakeException()
         }
         finally {
+            copyOfOldState.close()
             newLocalEphemeralKeypair.close()
             copyOfNewEphemeralPublicKeyWeAreSending?.fill(0)
             copyOfRemoteKeyBytes?.fill(0)
@@ -177,10 +178,12 @@ object Ratchet
      */
 
     fun ratchetForReceive(oldState: RatchetState, incomingEphemeralPublicKey: EphemeralPublicKey, incomingCounter: Int? = null): RatchetState {
+        var copyOfOldState: RatchetState? = null
         var copyOfLocalEphemeralKeypair: EphemeralKeypair? = null
         var copyOfIncomingEphemeralPublicKey: EphemeralPublicKey? = null
 
         return try {
+            copyOfOldState = RatchetState(oldState)
             copyOfLocalEphemeralKeypair = oldState.localEphemeralKeypair.copyOf()
             copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.copyBytes())
 
@@ -191,7 +194,7 @@ object Ratchet
             // TODO: The DHRatchet receives either an outgoing or incoming counter, +1 from the last one
 
             val resultingRatchetState = DHRatchet.perform(
-                oldState = oldState,
+                oldState = copyOfOldState,
                 localEphemeralKeypair = copyOfLocalEphemeralKeypair,
                 remotePublicKey = copyOfIncomingEphemeralPublicKey,
                 counter = incomingCounter
@@ -201,6 +204,7 @@ object Ratchet
             throw RedoHandshakeException(e.message ?: "Something went wrong while receiving a message")
         }
         finally {
+            copyOfOldState?.close()
             copyOfLocalEphemeralKeypair?.close()
         }
     }

@@ -14,15 +14,13 @@ object ECDH {
      */
     fun perform(privateKey: PrivateKey, publicKey: EphemeralPublicKey): Secret
     {
-        var copyOfPrivateKeyBytes: ByteArray? = null
-        var copyOfPublicKeyBytes: ByteArray? = null
+        require(privateKey.isUsable() && publicKey.isUsable()) { "Expired key or keys" }
 
-        publicKey.consume {
-            copyOfPublicKeyBytes = it.copyOf()
-        }
-        privateKey.consume {
-            copyOfPrivateKeyBytes = it.copyOf()
-        }
+        val copyOfPrivateKey = PrivateKey(privateKey.copyBytes())
+        val copyOfPublicKey = EphemeralPublicKey(publicKey.copyBytes())
+
+        val copyOfPrivateKeyBytes: ByteArray = copyOfPrivateKey.copyBytes()
+        val copyOfPublicKeyBytes: ByteArray = copyOfPublicKey.copyBytes()
 
         try {
             // BouncyCastle X25519 key agreement
