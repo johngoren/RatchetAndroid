@@ -7,7 +7,6 @@ import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
-import java.security.Security
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -46,27 +45,53 @@ class RatchetHardeningTest {
 
 
     @Test
-    fun `Reuse of ECDH public key is thwarted by counter`() {
+    fun `Monotonic counter fails for invalid value`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
-        val bobOriginalRemotePublicKey: EphemeralPublicKey = bobKeypair.publicKeyCopyForTesting
-        val bobReplayAttackKey: EphemeralPublicKey = bobKeypair.publicKeyCopyForTesting
+        val bobRemotePublicKey: EphemeralPublicKey = bobKeypair.publicKeyCopyForTesting
 
-        val initialState = Ratchet.initRatchetState(
+        val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
-            bobOriginalRemotePublicKey
+            bobRemotePublicKey
         )
 
-        val alice1 = Ratchet.ratchetForReceive(initialState, bobOriginalRemotePublicKey, 1)
+        val alice1 = Ratchet.ratchetForReceive(alice0, bobRemotePublicKey, 1)
         assertEquals(1, alice1.counterIn)
 
-        // Throws exception if the counter fails to increment
+        // Throws exception if we reuse a counter value
         assertFailsWith<RedoHandshakeException>(
             block = {
-                Ratchet.ratchetForReceive(alice1, bobOriginalRemotePublicKey, 1)
+                Ratchet.ratchetForReceive(alice1, bobRemotePublicKey, 1)
             }
         )
+
+        assertFailsWith<RedoHandshakeException>(
+            block = {
+                Ratchet.ratchetForReceive(alice1, bobRemotePublicKey, 0)
+            }
+        )
+    }
+
+    @Test
+    fun `Monotonic counter breaks the shared secret if it does not match`() {
+        val aliceKeypair = mockEphemeralKeypair()
+        val bobKeypair = mockEphemeralKeypair()
+
+        val aliceRemotePublicKey = aliceKeypair.publicKeyCopyForTesting
+        val bobRemotePublicKey = bobKeypair.publicKeyCopyForTesting
+
+        val alice0 = Ratchet.initRatchetState(
+            aliceKeypair,
+            bobRemotePublicKey
+        )
+
+        val bob1 = Ratchet.initRatchetState(
+            bobKeypair,
+            aliceRemotePublicKey
+        )
+
+
 
     }
 

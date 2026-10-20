@@ -7,7 +7,7 @@ import java.nio.ByteBuffer
  *
  *
  */
-class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
+class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): AutoCloseable
 {
 
     companion object
@@ -145,5 +145,9 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray)
         var result = type.hashCode()
         result = HASH_PRIME * result + bytes.contentHashCode()
         return result
+    }
+
+    override fun close() {
+        bytes.fill(0)
     }
 }

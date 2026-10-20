@@ -283,34 +283,34 @@ class RatchetUnitTests {
     @Test
     fun `encrypt and decrypt round trip`() {
         val aliceKeypair = mockEphemeralKeypair()
-        val bobKeypair = mockEphemeralKeypair()
+        val bobKeypair0 = mockEphemeralKeypair()
+        val bobKeypair1 = mockEphemeralKeypair()
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        val bobPublicKey0 = bobKeypair0.publicKeyCopyForTesting
+        val bobPublicKey1 = bobKeypair1.publicKeyCopyForTesting
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
-            secureInitialState.use { initialState ->
-                val bobEphemeralKeypair = mockEphemeralKeypair()
-                bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
-                    Ratchet.ratchetForReceive(secureInitialState, bobPublicKey)
-                        .use { state ->
+        val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey0)
 
-                            val originalMessage = PlaintextMessage(
-                                PlaintextMessageType.DATA,
-                                "Hello, World!".toByteArray()
-                            )
 
-                            // Encrypt
-                            val ciphertext = Encrypt.perform(state.messageKey!!, originalMessage)
+        Ratchet.ratchetForReceive(initialState, bobPublicKey1)
+            .use { state ->
 
-                            // Decrypt with same key
-                            val decryptedMessage = Decrypt.perform(state.messageKey!!, ciphertext)
+                val originalMessage = PlaintextMessage(
+                    PlaintextMessageType.DATA,
+                    "Hello, World!".toByteArray()
+                )
 
-                            assertEquals(originalMessage.type, decryptedMessage!!.type)
-                            assertArrayEquals(originalMessage.bytes, decryptedMessage!!.bytes)
-                        }
-                }
+                val copyOfPlaintextBytes = originalMessage.bytes.copyOf()
+
+                // Encrypt
+                val ciphertext = Encrypt.perform(state.messageKey!!, originalMessage)
+
+                // Decrypt with same key
+                val decryptedMessage = Decrypt.perform(state.messageKey!!, ciphertext)
+
+                assertEquals(originalMessage.type, decryptedMessage!!.type)
+                assertArrayEquals(copyOfPlaintextBytes, decryptedMessage!!.bytes)
             }
-        }
     }
 
     @Test

@@ -13,6 +13,8 @@ object Encrypt {
      * Encrypts a plaintext message using the message key.
      * Uses AES-GCM for authenticated encryption.
      *
+     * Destroys the original plaintext.
+     *
      * @param key The message key to use for encryption
      * @param plaintext The plaintext message to encrypt
      * @return The ciphertext
@@ -25,10 +27,14 @@ object Encrypt {
 
         try {
             copyOfKeyBytes = key.copyBytes()
-            require(copyOfKeyBytes != null) { "Tried to use key bytes copy but was null"}
+
+            plaintext.use {
+                copyOfPlaintextBytes = plaintext.toBytes().copyOf()
+            }
+
+            require(copyOfPlaintextBytes != null) { "Copy of plaintext was null" }
 
             // Serialize the plaintext message to bytes
-            copyOfPlaintextBytes = plaintext.toBytes()
 
             // Create AES-GCM key from the message key
             aesKey = org.operatorfoundation.aes.AesGcmKey(copyOfKeyBytes)
@@ -41,6 +47,7 @@ object Encrypt {
             throw e // TODO: Error handling
         }
         finally {
+            copyOfKeyBytes?.fill(0)
             copyOfPlaintextBytes?.fill(0)
             aesKey?.bytes?.fill(0)
         }

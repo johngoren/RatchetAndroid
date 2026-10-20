@@ -36,7 +36,7 @@ object DHRatchet {
     fun perform(
         oldState: RatchetState,
         localEphemeralKeypair: EphemeralKeypair,
-        remotePublicKey: EphemeralPublicKey,        // Incoming ephemeral PK
+        remotePublicKey: EphemeralPublicKey,
         counter: Int? = null
     ): RatchetState
     {
