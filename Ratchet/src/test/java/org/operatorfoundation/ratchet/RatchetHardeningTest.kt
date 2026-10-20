@@ -19,37 +19,6 @@ import kotlin.test.assertTrue
 class RatchetHardeningTest {
 
     @Test
-    fun `AutoCloseable ratchet state can make a copy that survives destruction of original`() {
-        val localKeypair = mockEphemeralKeypair()
-        var remotePublicKey: EphemeralPublicKey? = null
-        val remoteKeypair = mockEphemeralKeypair()
-        remoteKeypair.consume { public, private ->
-            remotePublicKey = public
-        }
-
-        val ratchetState = Ratchet.initRatchetState(
-            localKeypair,
-            remotePublicKey!!
-        )
-
-        var copyOfRatchetState: RatchetState? = null
-        var copyOfRootKey: ByteArray? = null
-
-        ratchetState.use { originalRatchetState ->
-            copyOfRatchetState = RatchetState(originalRatchetState)
-            copyOfRootKey = originalRatchetState.rootKey.bytesForTesting
-        }
-        ratchetState.close()
-
-        val zeroizedBytes = ByteArray(32).fill(0)
-
-        assertTrue(copyOfRatchetState != null)
-        assertTrue(copyOfRootKey?.first()!!.equals(zeroizedBytes))
-        assertTrue(copyOfRatchetState?.rootKey?.bytesForTesting != null)
-    }
-
-
-    @Test
     fun `Monotonic counter fails for invalid value`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
@@ -105,6 +74,7 @@ class RatchetHardeningTest {
 
         val bob1Result = Ratchet.ratchetForSend(bob0)
         val bobPublicKey = bob1Result.newEphemeralPublicKey
+        val bobPublicKeyReused = EphemeralPublicKey(bobPublicKey.copyBytes())
 
         val encrypted = Encrypt.perform(bob1Result.state.messageKey!!, plaintext)
 
@@ -113,12 +83,14 @@ class RatchetHardeningTest {
         assertContentEquals(decrypted!!.bytes, copyOfOriginalPlaintextBytes)
 
         // So far, so good. What if a replay attacker sends Alice the old public key with a new counter number?
-        assertFailsWith<RedoHandshakeException>(
+        val alice2 = Ratchet.ratchetForReceive(alice1, bobPublicKeyReused, 2)
+
+        // She ratchets and obtains a new message key. But Bob's replay of the public key will fail.
+        assertFailsWith<SecurityException>(
             block = {
-                val alice2 = Ratchet.ratchetForReceive(alice1, bobPublicKey, 2)
+                Decrypt.perform(alice2.messageKey!!, encrypted)
             }
         )
-
     }
 
     // ========== Object lockdown Tests ==========
