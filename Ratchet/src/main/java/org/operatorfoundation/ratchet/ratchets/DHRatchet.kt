@@ -122,8 +122,8 @@ object DHRatchet {
                     )
                 ),
                 remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey),
-                counterLastReceived = counterLastReceived ?: 0,
-                counterLastSent = counterLastSent ?: 0
+                counterIn = counterLastReceived ?: 0,
+                counterOut = counterLastSent ?: 0
             )
             newState
         }

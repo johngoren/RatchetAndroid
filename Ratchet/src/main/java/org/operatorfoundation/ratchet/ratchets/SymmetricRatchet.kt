@@ -61,7 +61,7 @@ object SymmetricRatchet {
                 )
 
                 val newState = RatchetState(
-                    oldState = copyOfOldState,
+                    originalState = copyOfOldState,
                     messageNumber = newMessageNumber,
                     chainKey = ChainKey(copyOfNewChainKey),
                     messageKey = MessageKey.fromHMAC(messageHmacOutput)

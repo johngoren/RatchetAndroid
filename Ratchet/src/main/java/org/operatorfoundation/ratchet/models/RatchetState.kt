@@ -28,8 +28,8 @@ class RatchetState(
     localEphemeralKeypair: EphemeralKeypair,
     remoteEphemeralPublicKey: EphemeralPublicKey,
     sessionId: ByteArray = ByteArray(16),
-    counterLastReceived: Int = 0,
-    counterLastSent: Int = 0
+    counterIn: Int = 0,
+    counterOut: Int = 0
 ): AutoCloseable {
 
     val rootKey = RootKey(rootKey.copyBytes())
@@ -40,8 +40,8 @@ class RatchetState(
     val localEphemeralKeypair = localEphemeralKeypair.copyOf()
     val remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes())
     val sessionId = sessionId.copyOf()
-    val counterLastReceived = counterLastReceived
-    val counterLastSent = counterLastSent
+    val counterIn = counterIn
+    val counterOut = counterOut
 
     private var isDestroyed: Boolean = false
 
@@ -50,17 +50,18 @@ class RatchetState(
             return !isDestroyed
         }
 
-    constructor(oldState: RatchetState,
-                rootKey: RootKey = oldState.rootKey,
-                messageNumber: Int = oldState.messageNumber,
-                chainKey: ChainKey? = oldState.chainKey,
-                sharedKey: SharedKey? = oldState.sharedKey,
-                messageKey: MessageKey? = oldState.messageKey,
-                localEphemeralKeypair: EphemeralKeypair = oldState.localEphemeralKeypair,
-                remoteEphemeralPublicKey: EphemeralPublicKey = oldState.remoteEphemeralPublicKey,
-                sessionId: ByteArray = oldState.sessionId,
-                counterIn: Int = oldState.counterLastReceived,
-                counterOut: Int = oldState.counterLastSent
+    // Secondary constructor for copying and mutating an existing state
+    constructor(originalState: RatchetState,
+                rootKey: RootKey = originalState.rootKey,
+                messageNumber: Int = originalState.messageNumber,
+                chainKey: ChainKey? = originalState.chainKey,
+                sharedKey: SharedKey? = originalState.sharedKey,
+                messageKey: MessageKey? = originalState.messageKey,
+                localEphemeralKeypair: EphemeralKeypair = originalState.localEphemeralKeypair,
+                remoteEphemeralPublicKey: EphemeralPublicKey = originalState.remoteEphemeralPublicKey,
+                sessionId: ByteArray = originalState.sessionId,
+                counterIn: Int = originalState.counterIn,
+                counterOut: Int = originalState.counterOut
     ) : this(
             rootKey = RootKey(rootKey.copyBytes()),
             messageNumber = messageNumber,
@@ -70,10 +71,10 @@ class RatchetState(
             localEphemeralKeypair = localEphemeralKeypair.copyOf(),
             remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes()),
             sessionId = sessionId,
-            counterLastReceived = counterIn,
-            counterLastSent = counterOut
+            counterIn = counterIn,
+            counterOut = counterOut
         ) {
-        require(oldState.isUsable) { "Tried to copy a state that has expired."}
+        require(originalState.isUsable) { "Tried to copy a state that has expired."}
     }
 
     override fun toString(): String {
