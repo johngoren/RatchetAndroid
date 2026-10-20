@@ -31,7 +31,6 @@ object Encrypt {
             plaintext.use {
                 copyOfPlaintextBytes = plaintext.toBytes().copyOf()
             }
-
             require(copyOfPlaintextBytes != null) { "Copy of plaintext was null" }
 
             // Serialize the plaintext message to bytes

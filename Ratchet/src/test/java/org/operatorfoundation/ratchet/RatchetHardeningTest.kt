@@ -4,9 +4,14 @@ import org.junit.Assert
 import org.junit.Assert.fail
 import org.junit.Test
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
+import org.operatorfoundation.ratchet.models.PlaintextMessage
+import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
+import org.operatorfoundation.ratchet.utils.Decrypt
+import org.operatorfoundation.ratchet.utils.Encrypt
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -81,17 +86,38 @@ class RatchetHardeningTest {
         val aliceRemotePublicKey = aliceKeypair.publicKeyCopyForTesting
         val bobRemotePublicKey = bobKeypair.publicKeyCopyForTesting
 
+        val plaintext = PlaintextMessage(
+            PlaintextMessageType.DATA,
+            TestUtils.mockPlaintext().toBytes()
+        )
+        val copyOfOriginalPlaintextBytes = plaintext.bytes.copyOf()
+
         val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
             bobRemotePublicKey
         )
+        val alice0copy = RatchetState(alice0)
 
-        val bob1 = Ratchet.initRatchetState(
+        val bob0 = Ratchet.initRatchetState(
             bobKeypair,
             aliceRemotePublicKey
         )
 
+        val bob1Result = Ratchet.ratchetForSend(bob0)
+        val bobPublicKey = bob1Result.newEphemeralPublicKey
 
+        val encrypted = Encrypt.perform(bob1Result.state.messageKey!!, plaintext)
+
+        val alice1 = Ratchet.ratchetForReceive(alice0, bobPublicKey, 1)
+        val decrypted = Decrypt.perform(alice1.messageKey!!, encrypted)
+        assertContentEquals(decrypted!!.bytes, copyOfOriginalPlaintextBytes)
+
+        // So far, so good. What if a replay attacker sends Alice the old public key with a new counter number?
+        assertFailsWith<RedoHandshakeException>(
+            block = {
+                val alice2 = Ratchet.ratchetForReceive(alice1, bobPublicKey, 2)
+            }
+        )
 
     }
 
