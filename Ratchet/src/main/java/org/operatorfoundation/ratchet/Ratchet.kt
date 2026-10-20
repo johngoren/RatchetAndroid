@@ -92,6 +92,7 @@ object Ratchet
                     localEphemeralKeypair = copyOfInitialLocalKeypair.copyOf(),
                     remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyBytes())
                 )
+
             }
             newState ?: throw RedoHandshakeException("Something went wrong in initialization")
         }
@@ -117,7 +118,6 @@ object Ratchet
      * @return Result containing the new state and the ephemeral public key to send
      */
 
-    // TODO: Where to update outgoing counter?
     fun ratchetForSend(oldState: RatchetState): RatchetSendResult
     {
         var result: RatchetSendResult? = null
@@ -141,13 +141,23 @@ object Ratchet
                 copyOfRemoteKeyBytes = it.remoteEphemeralPublicKey.copyBytes()
                 require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
 
-                val newState = DHRatchet.perform(
+                val dhCounter = it.counterLastSent + 1
+
+                val ratchetedState = DHRatchet.perform(
                     oldState = copyOfOldState,
+                    counter = dhCounter,
                     localEphemeralKeypair = EphemeralKeypair.from(copyOfNewEphemeralPublicKeyWeAreSending, copyOfNewEphemeralPrivateKey!!),
                     remotePublicKey = EphemeralPublicKey(copyOfRemoteKeyBytes)
                 )
+
+                var newState: RatchetState? = null
+
+                ratchetedState.use { state ->
+                    newState = RatchetState(state, counterOut = dhCounter)
+                }
+
                 result = RatchetSendResult(
-                    newState,
+                    newState!!,
                     EphemeralPublicKey(copyOfNewEphemeralPublicKeyWeAreSending),
                 )
             }
@@ -184,11 +194,12 @@ object Ratchet
             copyOfLocalEphemeralKeypair = oldState.localEphemeralKeypair.copyOf()
             copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.copyBytes())
 
-            incomingCounter?.also {
-                validateCounter(incomingCounter, oldState.counterLastReceivedKeyNum)
-            }
+            // We make sure, to prevent replay attacks, that the incoming ECDHE key is
+            // bound to an increasing monotonic counter
 
-            // TODO: The DHRatchet receives either an outgoing or incoming counter, +1 from the last one
+            incomingCounter?.also {
+                validateCounter(incomingCounter, oldState.counterLastReceived)
+            }
 
             val resultingRatchetState = DHRatchet.perform(
                 oldState = copyOfOldState,
@@ -196,7 +207,14 @@ object Ratchet
                 remotePublicKey = copyOfIncomingEphemeralPublicKey,
                 counter = incomingCounter
             )
-            resultingRatchetState
+            var newState: RatchetState? = null
+
+            resultingRatchetState.use { state ->
+                newState = RatchetState(state, counterIn = incomingCounter ?: 0)
+            }
+
+            newState!!
+
         } catch(e: Exception) {
             throw RedoHandshakeException(e.message ?: "Something went wrong while receiving a message")
         }
@@ -208,7 +226,7 @@ object Ratchet
 
     private fun validateCounter(incomingCounter: Int, lastReceivedCounterNum: Int) {
         if (incomingCounter <= lastReceivedCounterNum) {
-            throw SecurityException("ECDHE counter failed to increment")
+            throw SecurityException("ECDHE counter failed validation")
         }
     }
 

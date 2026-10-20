@@ -32,14 +32,12 @@ import org.operatorfoundation.ratchet.utils.HMAC
 object DHRatchet {
 
     // TODO: Defensive quality checks around any incoming key.
-    // TODO: Understand better how we store or do not store ECDHE in state.
 
     fun perform(
         oldState: RatchetState,
         localEphemeralKeypair: EphemeralKeypair,
         remotePublicKey: EphemeralPublicKey,        // Incoming ephemeral PK
-        counter: Int? = null,
-        outgoingCounter: Int? = null
+        counter: Int? = null
     ): RatchetState
     {
         val copyOfOldState = RatchetState(oldState)
@@ -55,7 +53,10 @@ object DHRatchet {
         var copyOfRemotePublicKey: ByteArray? = remotePublicKey.copyBytes()
         var copyOfOldRootKey: ByteArray? = null
         var copyOfSessionId: ByteArray? = null
-        var copyOfSharedSecret: ByteArray? = null
+
+        var counterLastSent: Int? = null
+        var counterLastReceived: Int? = null
+
         var messageNum: Int? = null
         var sharedSecret: Secret? = null
         var hkdfOutput: ByteArray? = null
@@ -72,14 +73,12 @@ object DHRatchet {
             copyOfRemotePublicKey = remotePublicKey.copyBytes()
             copyOfOldState.use {
                 it.apply {
-                    copyOfOldRootKey = it.rootKey.copyBytes()
+                    copyOfOldRootKey = rootKey.copyBytes()
                     copyOfSessionId = sessionId
                     messageNum = messageNumber
                 }
             }
 
-            require(copyOfLocalEphemeralPrivateKey != null) { "No copy available of local ECDHE private key" }
-            require(copyOfRemotePublicKey != null) { "No copy of remote public key" }
             require(copyOfSessionId != null) { "No copy of session ID" }
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
@@ -98,8 +97,8 @@ object DHRatchet {
                 sharedSecret,
                 contextBoundToSessionAndCounterNonces
             )
-            newRootKey = RootKey.fromHKDF(hkdfOutput)
-            newChainKey = ChainKey.fromHKDF(hkdfOutput)
+            newRootKey = RootKey.fromHKDF(hkdfOutput)       // First 32 bytes
+            newChainKey = ChainKey.fromHKDF(hkdfOutput)     // Second 32 bytes
 
             copyOfNewChainKeyBytes = newChainKey.copyBytes()
             require(copyOfNewChainKeyBytes != null) { "New chain key bytes were null"}
@@ -123,7 +122,8 @@ object DHRatchet {
                     )
                 ),
                 remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey),
-                counterLastReceivedKeyNum = counter ?: 0    // TODO: Remove fallback?
+                counterLastReceived = counterLastReceived ?: 0,
+                counterLastSent = counterLastSent ?: 0
             )
             newState
         }
@@ -142,7 +142,7 @@ object DHRatchet {
             sharedSecret?.close()
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)
-            copyOfOldState?.close()
+            copyOfOldState.close()
         }
     }
 

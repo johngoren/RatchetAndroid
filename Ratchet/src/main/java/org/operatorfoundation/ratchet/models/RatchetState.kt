@@ -28,8 +28,8 @@ class RatchetState(
     localEphemeralKeypair: EphemeralKeypair,
     remoteEphemeralPublicKey: EphemeralPublicKey,
     sessionId: ByteArray = ByteArray(16),
-    counterLastReceivedKeyNum: Int = 0,
-    counterLastSentKeyNum: Int = 0
+    counterLastReceived: Int = 0,
+    counterLastSent: Int = 0
 ): AutoCloseable {
 
     val rootKey = RootKey(rootKey.copyBytes())
@@ -40,8 +40,8 @@ class RatchetState(
     val localEphemeralKeypair = localEphemeralKeypair.copyOf()
     val remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes())
     val sessionId = sessionId.copyOf()
-    val counterLastReceivedKeyNum = counterLastReceivedKeyNum
-    val counterLastSentKeyNum = counterLastSentKeyNum
+    val counterLastReceived = counterLastReceived
+    val counterLastSent = counterLastSent
 
     private var isDestroyed: Boolean = false
 
@@ -59,8 +59,8 @@ class RatchetState(
                 localEphemeralKeypair: EphemeralKeypair = oldState.localEphemeralKeypair,
                 remoteEphemeralPublicKey: EphemeralPublicKey = oldState.remoteEphemeralPublicKey,
                 sessionId: ByteArray = oldState.sessionId,
-                counterLastReceivedKeyNum: Int = oldState.counterLastReceivedKeyNum,
-                counterLastSentKeyNum: Int = oldState.counterLastSentKeyNum
+                counterIn: Int = oldState.counterLastReceived,
+                counterOut: Int = oldState.counterLastSent
     ) : this(
             rootKey = RootKey(rootKey.copyBytes()),
             messageNumber = messageNumber,
@@ -70,8 +70,8 @@ class RatchetState(
             localEphemeralKeypair = localEphemeralKeypair.copyOf(),
             remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes()),
             sessionId = sessionId,
-            counterLastReceivedKeyNum = counterLastReceivedKeyNum,
-            counterLastSentKeyNum = counterLastSentKeyNum
+            counterLastReceived = counterIn,
+            counterLastSent = counterOut
         ) {
         require(oldState.isUsable) { "Tried to copy a state that has expired."}
     }
