@@ -58,14 +58,14 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            secureInitialState.use { state0 ->
+            initialState.use { state0 ->
                 val copyOfState0RootKey = state0.rootKey.bytesForTesting.copyOf()
-                val state1Result = Ratchet.ratchetForSend(secureInitialState)
+                val state1Result = Ratchet.ratchetForSend(initialState)
                 assertNotNull(state1Result.newEphemeralPublicKey)
 
                 state1Result.state.use { state1 ->
@@ -96,17 +96,17 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            secureInitialState.use { initialState ->
+            initialState.use { initialState ->
 
                 val senderEphemeralKey = EphemeralPublicKey(MADH.generateKeypair().publicKey.bytes)
                 initialStateRootKey = initialState.rootKey.bytesForTesting
 
-                Ratchet.ratchetForReceive(secureInitialState, senderEphemeralKey).use { newState ->
+                Ratchet.ratchetForReceive(initialState, senderEphemeralKey).use { newState ->
 
                     // All keys should be created after DH ratchet
                     assertNotNull(newState.chainKey)
@@ -208,14 +208,14 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            secureInitialState.use { initialState ->
+            initialState.use { initialState ->
                 // Need to perform DH ratchet first to get a message key
-                val result = Ratchet.ratchetForSend(secureInitialState)
+                val result = Ratchet.ratchetForSend(initialState)
                 result.state.use { state ->
                     val originalMessage = PlaintextMessage(
                         type = PlaintextMessageType.UNCOMPRESSED_TEXT,
@@ -284,37 +284,36 @@ class RatchetIntegrationTest {
 
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
+        val bobPublicKey = bobKeypair.publicKeyCopyForTesting
 
-        bobKeypair.consume { bobPublicKey, bobPrivateKey ->
+        val initialState = Ratchet.initRatchetState(
+            aliceKeypair,
+            bobPublicKey
+        )
 
-            val aliceSecureInitialState = Ratchet.initRatchetState(
-                aliceKeypair,
-                bobPublicKey
+        val result = Ratchet.ratchetForSend(initialState)
+
+        result.state.use { aliceState ->
+
+            // Alice sends first message
+            val message1 = PlaintextMessage(
+                PlaintextMessageType.UNCOMPRESSED_TEXT,
+                "Hello Bob".toByteArray()
             )
+            val ciphertext1 = Encrypt.perform(aliceState.messageKey!!, message1)
+            val decrypted1 = Decrypt.perform(aliceState.messageKey!!, ciphertext1)
 
-            val result = Ratchet.ratchetForSend(aliceSecureInitialState)
+            assertArrayEquals(message1.bytes, decrypted1!!.bytes)
 
-            result.state.use { aliceState ->
+            Ratchet.symmetricRatchetFrom(result.state).use { newState ->
 
-                // Alice sends first message
-                val message1 = PlaintextMessage(
+                val message2 = PlaintextMessage(
                     PlaintextMessageType.UNCOMPRESSED_TEXT,
-                    "Hello Bob".toByteArray()
+                    "Hello again".toByteArray()
                 )
-                val ciphertext1 = Encrypt.perform(aliceState.messageKey!!, message1)
-                val decrypted1 = Decrypt.perform(aliceState.messageKey!!, ciphertext1)
-                assertArrayEquals(message1.bytes, decrypted1!!.bytes)
-
-                Ratchet.symmetricRatchetFrom(result.state).use { newState ->
-
-                    val message2 = PlaintextMessage(
-                        PlaintextMessageType.UNCOMPRESSED_TEXT,
-                        "Hello again".toByteArray()
-                    )
-                    val ciphertext2 = Encrypt.perform(newState.messageKey!!, message2)
-                    val decrypted2 = Decrypt.perform(newState.messageKey!!, ciphertext2)
-                    assertArrayEquals(message2.bytes, decrypted2!!.bytes)
-                }
+                val ciphertext2 = Encrypt.perform(newState.messageKey!!, message2)
+                val decrypted2 = Decrypt.perform(newState.messageKey!!, ciphertext2)
+                assertArrayEquals(message2.bytes, decrypted2!!.bytes)
             }
         }
     }

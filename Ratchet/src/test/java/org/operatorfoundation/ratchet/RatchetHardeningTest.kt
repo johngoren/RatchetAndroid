@@ -48,7 +48,7 @@ class RatchetHardeningTest {
     }
 
     @Test
-    fun `Monotonic counter breaks the shared secret if it does not match`() {
+    fun `Encryption succeeds only when the counter number is valid`() {
         val aliceKeypair = mockEphemeralKeypair()
         val bobKeypair = mockEphemeralKeypair()
 
@@ -65,8 +65,6 @@ class RatchetHardeningTest {
             aliceKeypair,
             bobRemotePublicKey
         )
-        val alice0copy = RatchetState(alice0)
-
         val bob0 = Ratchet.initRatchetState(
             bobKeypair,
             aliceRemotePublicKey

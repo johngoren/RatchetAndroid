@@ -320,12 +320,12 @@ class RatchetUnitTests {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
+            val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
             val bobEphemeralKeypair = mockEphemeralKeypair()
 
             bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobPublicKey)
+                Ratchet.ratchetForReceive(initialState, bobPublicKey)
                     .use { state ->
 
                         val message = PlaintextMessage(
@@ -396,12 +396,12 @@ class RatchetUnitTests {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
+            val initialState = Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
             val bobEphemeralKeypair = mockEphemeralKeypair()
 
             bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-                Ratchet.ratchetForReceive(secureInitialState, bobPublicKey)
+                Ratchet.ratchetForReceive(initialState, bobPublicKey)
                     .use { state ->
 
                         // Alice encrypts a message
@@ -430,7 +430,7 @@ class RatchetUnitTests {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
             // Alice initializes and performs first ratchet
-            val aliceSecureInitialState =
+            val initialState =
                 Ratchet.initRatchetState(aliceKeypair, bobPublicKey)
 
             val bobEphemeralKeypair = mockEphemeralKeypair()
@@ -438,7 +438,7 @@ class RatchetUnitTests {
             bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
 
                 val aliceState1 = Ratchet.ratchetForReceive(
-                    aliceSecureInitialState,
+                    initialState,
                     bobPublicKey
                 )
                 aliceState1.use { aliceState1peek ->
