@@ -33,8 +33,6 @@ typealias MonotonicCounter = Int
 
 object DHRatchet {
 
-    // TODO: Defensive quality checks around any incoming key.
-
     fun perform(
         oldState: RatchetState,
         localEphemeralKeypair: EphemeralKeypair,
@@ -54,7 +52,6 @@ object DHRatchet {
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
         var copyOfRemotePublicKey: ByteArray? = remotePublicKey.copyBytes()
         var copyOfOldRootKey: ByteArray? = null
-        var copyOfSessionId: ByteArray? = null
 
         var messageNum: Int? = null
         var sharedSecret: Secret? = null

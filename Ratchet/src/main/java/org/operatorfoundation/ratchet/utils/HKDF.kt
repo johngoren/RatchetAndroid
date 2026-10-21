@@ -50,8 +50,6 @@ object HKDF {
         val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
         var prk: ByteArray? = null
 
-        // TODO: Enforce proper secret size inside sharedSecret.
-
         return try {
             sharedSecret.consume { sharedKey ->
                 // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)

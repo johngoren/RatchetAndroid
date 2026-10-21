@@ -1,5 +1,7 @@
 package org.operatorfoundation.ratchet
 
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters
+import org.bouncycastle.math.ec.rfc7748.X25519
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.Constants.MAX_COUNTER_NUM
 import org.operatorfoundation.ratchet.models.keys.RootKey
@@ -75,7 +77,6 @@ object Ratchet
                 // Derive initial root key from long-term keys: R_0 = ECDH(priv_a0, k_b0)
                 initialSharedSecret = ECDH.perform(copyOfInitialLocalPrivateKey, copyOfRemotePublicKey)
 
-                // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
                     initialSharedSecret,
                     KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, 0)
@@ -232,7 +233,7 @@ object Ratchet
     private fun handleSkippedKeys() {
         /**
          *  TODO in Shout Messages road map: Implement this feature that was originally
-         *  deemed out of scope by the encryption developers.
+         *  deemed out of scope during development.
          *
          */
     }

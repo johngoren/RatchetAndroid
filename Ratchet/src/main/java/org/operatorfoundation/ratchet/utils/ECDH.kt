@@ -33,6 +33,8 @@ object ECDH {
 
             // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
             sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
+
+            // RFC 7748 guards against invalid inputs
             val successfulKeyAgreement = org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
                 copyOfPrivateKeyBytes,
                 0,
@@ -43,12 +45,12 @@ object ECDH {
             )
             if (!successfulKeyAgreement) {
                 sharedSecret.fill(0)
-                throw SecurityException("Unsuccessful key agreement")
+                throw SecurityException("Unsuccessful key agreement. Possibly bad peer key.")
             }
             return Secret(sharedSecret.copyOf())
         }
         catch(e: SecurityException) {
-            throw RedoHandshakeException(e.message ?: "Trouble reaching ECDH")
+            throw RedoHandshakeException(e.message ?: "An error ocurred during ECDH")
         }
         catch(e: Exception) {
             throw e

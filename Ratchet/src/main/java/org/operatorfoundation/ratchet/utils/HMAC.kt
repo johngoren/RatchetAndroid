@@ -15,11 +15,10 @@ object HMAC {
     {
         val copyOfKeyBytes = key.copyOf()
         val copyOfDataBytes = data.copyOf()
-        var secretKey: SecretKeySpec? = null
 
         return try {
             val mac = Mac.getInstance(HMAC_ALGORITHM)
-            secretKey = SecretKeySpec(copyOfKeyBytes, HMAC_ALGORITHM)
+            val secretKey = SecretKeySpec(copyOfKeyBytes, HMAC_ALGORITHM)
             mac.init(secretKey)
             mac.doFinal(copyOfDataBytes)
         }
@@ -29,7 +28,6 @@ object HMAC {
         finally {
             copyOfKeyBytes.fill(0)
             copyOfDataBytes.fill(0)
-            secretKey?.destroy()
         }
     }
 }
