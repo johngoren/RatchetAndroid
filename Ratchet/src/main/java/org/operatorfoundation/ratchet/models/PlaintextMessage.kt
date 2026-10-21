@@ -136,11 +136,7 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
 
     override fun hashCode(): Int
     {
-        // Use prime multiplier for better hash distribution when combining fields
-        val HASH_PRIME = 31
-        var result = type.hashCode()
-        result = HASH_PRIME * result + bytes.contentHashCode()
-        return result
+        throw SecurityException("Hash code has been disabled for security.")
     }
 
     override fun close() {

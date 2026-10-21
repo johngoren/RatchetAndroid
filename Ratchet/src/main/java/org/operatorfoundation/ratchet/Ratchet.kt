@@ -1,6 +1,7 @@
 package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.madh.MADH
+import org.operatorfoundation.ratchet.Constants.MAX_COUNTER_NUM
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
@@ -10,7 +11,7 @@ import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 import org.operatorfoundation.ratchet.ratchets.DHRatchet
 import org.operatorfoundation.ratchet.ratchets.MonotonicCounter
 import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
-import org.operatorfoundation.ratchet.utils.ContextField
+import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
 
@@ -27,8 +28,6 @@ class RedoHandshakeException(message: String = "Something went wrong. You need t
 
 object Ratchet
 {
-    const val NUM_BYTES_IN_KEY = 32
-    const val NUM_BYTES_IN_SESSION_NONCE = 16   // TODO: Decide on length and note down justification
 
     class RatchetSendResult(
         val state: RatchetState,
@@ -52,7 +51,6 @@ object Ratchet
     fun initRatchetState(
         initialLocalKeypair: EphemeralKeypair,
         initialRemotePublicKey: EphemeralPublicKey,
-        sessionNonce: ByteArray = ByteArray(16)
     ): RatchetState
     {
         var copyOfRemotePublicKey: EphemeralPublicKey? = null
@@ -61,16 +59,13 @@ object Ratchet
 
         val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
         var copyOfInitialLocalPrivateKey: PrivateKey? = null
-        val copyOfSessionId = sessionNonce.copyOf()
 
         var hkdfOutput: ByteArray? = null
         var initialSharedSecret: Secret? = null
         var newState: RatchetState? = null
 
         return try {
-            require(copyOfSessionId.size == NUM_BYTES_IN_SESSION_NONCE) { "Invalid length of session nonce" }
-
-            copyOfInitialLocalKeypair.consume { localPublicKey, localPrivateKey ->
+            copyOfInitialLocalKeypair.consume { _, localPrivateKey ->
 
                 localPrivateKey.consume {
                     copyOfInitialLocalPrivateKey = PrivateKey(it)
@@ -83,13 +78,12 @@ object Ratchet
                 // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
                     initialSharedSecret,
-                    ContextField.getInfoForInit(ContextField.Init.INFOPREFIX, copyOfSessionId.copyOf())
+                    KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, 0)
                 )
 
                 // Return initial state with defaults for optional fields
                 newState = RatchetState(
                     rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
-                    sessionId = copyOfSessionId.copyOf(),
                     localEphemeralKeypair = copyOfInitialLocalKeypair.copyOf(),
                     remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyBytes())
                 )
@@ -103,7 +97,6 @@ object Ratchet
         finally {
             copyOfInitialLocalKeypair.close()
             copyOfInitialLocalPrivateKey?.close()
-            copyOfSessionId.fill(0)
             initialSharedSecret?.close()
             hkdfOutput?.fill(0)
         }
@@ -140,9 +133,11 @@ object Ratchet
 
             copyOfOldState.use {
                 copyOfRemoteKeyBytes = it.remoteEphemeralPublicKey.copyBytes()
-                require(copyOfRemoteKeyBytes != null) { throw RedoHandshakeException("No remote public key to work with")}
 
                 val dhCounter = it.counterOut + 1
+                if (dhCounter > MAX_COUNTER_NUM) {
+                    throw RedoHandshakeException("Maximum number of Shout messages exceeded. User needs to redo handshake.")
+                }
 
                 val ratchetedState = DHRatchet.perform(
                     oldState = copyOfOldState,
@@ -197,6 +192,7 @@ object Ratchet
 
             copyOfOldState.use {
                 validateCounter(incomingCounter, it.counterIn)
+                checkForSkippedKeys(incomingCounter, it.counterIn)
 
                 val resultingRatchetState = DHRatchet.perform(
                     oldState = copyOfOldState,
@@ -207,7 +203,7 @@ object Ratchet
                 var newState: RatchetState? = null
 
                 resultingRatchetState.use { state ->
-                    newState = RatchetState(state, counterIn = incomingCounter ?: 0)
+                    newState = RatchetState(state, counterIn = incomingCounter)
                 }
 
                 newState!!
@@ -225,6 +221,20 @@ object Ratchet
         if (incomingCounter <= lastReceivedCounterNum) {
             throw SecurityException("ECDHE counter failed validation")
         }
+    }
+
+    private fun checkForSkippedKeys(incomingCounter: Int, lastReceivedCounterNum: Int) {
+        if (incomingCounter > lastReceivedCounterNum + 1) {
+            handleSkippedKeys()
+        }
+    }
+
+    private fun handleSkippedKeys() {
+        /**
+         *  TODO in Shout Messages road map: Implement this feature that was originally
+         *  deemed out of scope by the encryption developers.
+         *
+         */
     }
 
     /**
@@ -259,19 +269,6 @@ object Ratchet
 
     private fun generateEphemeralKeypair(): EphemeralKeypair {
         return EphemeralKeypair(MADH.generateKeypair())
-    }
-
-    val RADIX_FOR_COUNTER_ENCODING = 16
-
-    private fun decodeHexBytesToNumber(bytes: ByteArray): Int? {
-        try {
-            return bytes
-                .toString(Charsets.UTF_8)
-                .toInt(RADIX_FOR_COUNTER_ENCODING)
-        }
-        catch(e: Exception) {
-            throw IllegalArgumentException("Could not decode into hex")
-        }
     }
 
 }

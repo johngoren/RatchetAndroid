@@ -29,7 +29,7 @@ object HMAC {
         finally {
             copyOfKeyBytes.fill(0)
             copyOfDataBytes.fill(0)
-            // TODO: Correct way to destroy a Secret Key Spec?
+            secretKey?.destroy()
         }
     }
 }

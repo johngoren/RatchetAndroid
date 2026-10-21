@@ -3,7 +3,7 @@ package org.operatorfoundation.ratchet.ratchets
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Constants.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
@@ -13,7 +13,7 @@ import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.SharedKey
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
-import org.operatorfoundation.ratchet.utils.ContextField
+import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
 import org.operatorfoundation.ratchet.utils.HMAC
@@ -73,12 +73,10 @@ object DHRatchet {
             copyOfOldState.use {
                 it.apply {
                     copyOfOldRootKey = rootKey.copyBytes()
-                    copyOfSessionId = sessionId
                     messageNum = messageNumber
                 }
             }
 
-            require(copyOfSessionId != null) { "No copy of session ID" }
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
 
@@ -89,7 +87,7 @@ object DHRatchet {
             // Derive new root and chain keys:
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to counter nonce})
 
-            val contextBoundToCounter = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter)
+            val contextBoundToCounter = KeyContext.getInfoWithCounter(KeyContext.ChainKey.INFOPREFIX, counter)
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey,

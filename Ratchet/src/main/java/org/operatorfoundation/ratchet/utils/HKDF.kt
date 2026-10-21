@@ -47,7 +47,7 @@ object HKDF {
 
     fun forRootKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
-        val salt = (ContextField.RootKey.SALT).toByteArray(Charsets.UTF_8)
+        val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
         var prk: ByteArray? = null
 
         // TODO: Enforce proper secret size inside sharedSecret.

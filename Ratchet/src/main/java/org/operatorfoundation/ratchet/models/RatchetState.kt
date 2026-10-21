@@ -27,7 +27,7 @@ class RatchetState(
     messageKey: MessageKey? = null,
     localEphemeralKeypair: EphemeralKeypair,
     remoteEphemeralPublicKey: EphemeralPublicKey,
-    sessionId: ByteArray = ByteArray(16),
+    skippedKeys: Map<Int, ByteArray>? = null,
     counterIn: Int = 0,
     counterOut: Int = 0
 ): AutoCloseable {
@@ -39,7 +39,6 @@ class RatchetState(
     val messageKey = if (messageKey != null) { MessageKey(messageKey.copyBytes()) } else null
     val localEphemeralKeypair = localEphemeralKeypair.copyOf()
     val remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes())
-    val sessionId = sessionId.copyOf()
     val counterIn = counterIn
     val counterOut = counterOut
 
@@ -59,9 +58,8 @@ class RatchetState(
                 messageKey: MessageKey? = originalState.messageKey,
                 localEphemeralKeypair: EphemeralKeypair = originalState.localEphemeralKeypair,
                 remoteEphemeralPublicKey: EphemeralPublicKey = originalState.remoteEphemeralPublicKey,
-                sessionId: ByteArray = originalState.sessionId,
                 counterIn: Int = originalState.counterIn,
-                counterOut: Int = originalState.counterOut
+                counterOut: Int = originalState.counterOut,
     ) : this(
             rootKey = RootKey(rootKey.copyBytes()),
             messageNumber = messageNumber,
@@ -70,7 +68,6 @@ class RatchetState(
             messageKey = if (messageKey != null) { MessageKey(messageKey.copyBytes())} else null,
             localEphemeralKeypair = localEphemeralKeypair.copyOf(),
             remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes()),
-            sessionId = sessionId,
             counterIn = counterIn,
             counterOut = counterOut
         ) {
