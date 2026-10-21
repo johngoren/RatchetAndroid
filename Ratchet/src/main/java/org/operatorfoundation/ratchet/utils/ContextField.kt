@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 
 object ContextField {
 
-    fun getInfo(prefix: String, sessionNonce: ByteArray): ByteArray {
+    fun getInfoForInit(prefix: String, sessionNonce: ByteArray): ByteArray {
         require(sessionNonce.size == NUM_BYTES_IN_SESSION_NONCE) { "Session nonce was wrong size "}
 
         val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
@@ -17,16 +17,22 @@ object ContextField {
             .array()
     }
 
-    fun getInfoWithCounter(prefix: String, sessionNonce: ByteArray, counter: Int): ByteArray {
-        require(sessionNonce.size == NUM_BYTES_IN_SESSION_NONCE) { "Session nonce was wrong size"}
 
+    fun getInfoBasic(prefix: String): ByteArray {
+        val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
+
+        return ByteBuffer.allocate((prefixBytes.size))
+            .put(prefixBytes)
+            .array()
+    }
+
+    fun getInfoWithCounter(prefix: String, counter: Int): ByteArray {
         val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
         val counterBytes = numberToHexBytes(counter)
-        val bufferSize = prefixBytes.size + sessionNonce.size + counterBytes.size
+        val bufferSize = prefixBytes.size + counterBytes.size
 
         return ByteBuffer.allocate(bufferSize)
             .put(prefixBytes)
-            .put(sessionNonce)
             .put(counterBytes)
             .array()
     }
@@ -37,6 +43,10 @@ object ContextField {
         return number
             .toString(RADIX_FOR_COUNTER_ENCODING)
             .toByteArray(Charsets.UTF_8)
+    }
+
+    object Init {
+        const val INFOPREFIX = "SHOUT-INIT"
     }
 
     object RootKey {

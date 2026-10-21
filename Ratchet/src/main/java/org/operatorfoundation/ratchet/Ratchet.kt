@@ -48,10 +48,13 @@ object Ratchet
      * @param initialRemotePublicKey The remote party's first ephemeral public key
      * @return The initial ratchet state
      */
+
+    // TODO: Avoid nonce reuse. We can keep the session ID out of the context? But use it to establish the initial state...
+
     fun initRatchetState(
         initialLocalKeypair: EphemeralKeypair,
         initialRemotePublicKey: EphemeralPublicKey,
-        sessionId: ByteArray = ByteArray(16) // TODO: Require actual nonce and make sure it's not repeatable from OOB
+        sessionNonce: ByteArray = ByteArray(16)
     ): RatchetState
     {
         var copyOfRemotePublicKey: EphemeralPublicKey? = null
@@ -60,7 +63,7 @@ object Ratchet
 
         val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
         var copyOfInitialLocalPrivateKey: PrivateKey? = null
-        val copyOfSessionId = sessionId.copyOf()
+        val copyOfSessionId = sessionNonce.copyOf()
 
         var hkdfOutput: ByteArray? = null
         var initialSharedSecret: Secret? = null
@@ -82,7 +85,7 @@ object Ratchet
                 // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
                     initialSharedSecret,
-                    ContextField.getInfo(ContextField.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
+                    ContextField.getInfoForInit(ContextField.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
                 )
 
                 // Return initial state with defaults for optional fields

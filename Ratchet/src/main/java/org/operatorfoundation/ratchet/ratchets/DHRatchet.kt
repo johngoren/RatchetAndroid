@@ -90,7 +90,7 @@ object DHRatchet {
             // Derive new root and chain keys:
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
 
-            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, copyOfSessionId, counter ?: 0) // TODO: Remove fallback
+            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter ?: 0) // TODO: Remove fallback
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey,
