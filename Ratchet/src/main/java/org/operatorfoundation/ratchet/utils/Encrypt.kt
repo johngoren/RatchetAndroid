@@ -38,7 +38,7 @@ object Encrypt {
             return cipher.encrypt(aesKey, copyOfPlaintextBytes)
         }
         catch(e: Exception) {
-            throw e // TODO: Error handling
+            throw e
         }
         finally {
             copyOfKeyBytes?.fill(0)

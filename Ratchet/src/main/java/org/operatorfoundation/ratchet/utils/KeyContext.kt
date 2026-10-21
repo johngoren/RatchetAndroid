@@ -1,6 +1,6 @@
 package org.operatorfoundation.ratchet.utils
 
-import org.operatorfoundation.ratchet.Ratchet.RADIX_FOR_COUNTER_ENCODING
+import org.operatorfoundation.ratchet.Constants.RADIX_FOR_COUNTER_ENCODING
 import org.operatorfoundation.ratchet.ratchets.MonotonicCounter
 import java.nio.ByteBuffer
 
@@ -19,7 +19,7 @@ object KeyContext {
 
     // Utils
 
-    private fun numberToHexBytes(number: Int): ByteArray {
+    private fun numberToHexBytes(number: MonotonicCounter): ByteArray {
         return number
             .toString(RADIX_FOR_COUNTER_ENCODING)
             .toByteArray(Charsets.UTF_8)

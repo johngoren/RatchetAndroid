@@ -249,7 +249,7 @@ object Ratchet
 
     fun dhRatchet(
         oldState: RatchetState,
-        localEphemeralKeypair: EphemeralKeypair,          // TODO: Safe to make this non-nullable?
+        localEphemeralKeypair: EphemeralKeypair,
         incomingPublicKey: EphemeralPublicKey,
         counter: MonotonicCounter = 1
     ): RatchetState {

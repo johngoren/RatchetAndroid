@@ -71,7 +71,7 @@ object SymmetricRatchet {
             newRatchetState ?: throw Exception("Null ratchet state")
         }
         catch(e: Exception) {
-            throw e // TODO: More specific error-handling
+            throw e
         }
         finally {
             chainHmacOutput?.fill(0)
