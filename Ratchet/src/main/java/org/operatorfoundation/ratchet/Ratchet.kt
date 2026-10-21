@@ -14,6 +14,7 @@ import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
 import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
+import org.operatorfoundation.ratchet.utils.SkippedKeys
 import kotlin.let
 
 /**
@@ -196,11 +197,12 @@ object Ratchet
 
                 var stateSkippingOverMissedKeys: RatchetState? = null
                 if (incomingCounter > lastReceivedCounter + 1) {
-                    stateSkippingOverMissedKeys = getStateWithSkippedKeys(it, incomingCounter)
+                    stateSkippingOverMissedKeys = SkippedKeys.handle(it, incomingCounter)
+                    copyOfOldState.close()
                 }
 
                 val resultingRatchetState = DHRatchet.perform(
-                    oldState = copyOfOldState,
+                    oldState = stateSkippingOverMissedKeys ?: copyOfOldState,
                     localEphemeralKeypair = copyOfLocalEphemeralKeypair,
                     remotePublicKey = copyOfIncomingEphemeralPublicKey,
                     counter = incomingCounter
@@ -228,37 +230,6 @@ object Ratchet
         }
     }
 
-    private fun getStateWithSkippedKeys(
-        state: RatchetState,
-        counter: Int
-    ): RatchetState {
-        val copyOfState = RatchetState(state)
-
-         copyOfState.use {
-            val skippedKeysMap = it.skippedKeys.toMutableMap() ?: mutableMapOf()
-            val skipCount = counter - it.counterIn - 1
-            require(skipCount <= Constants.MAX_SKIP) { "Too many messages skipped: ($skipCount > ${Constants.MAX_SKIP})" }
-
-            var _state = RatchetState(it)
-            val lastCounterReceived = it.counterIn
-
-            for (counter in (lastCounterReceived) until counter) {
-                // Advance the symmetric ratchet to derive the key for the skipped counter
-                val copyOfStateCache = SymmetricRatchet.perform(_state)
-                _state.close()
-
-                _state = RatchetState(
-                    copyOfStateCache,
-                )
-                copyOfStateCache.close()
-
-                _state.messageKey?.let { messageKey ->
-                    skippedKeysMap[counter] = messageKey.copyBytes()
-                }
-            }
-            return RatchetState(_state, skippedKeys=skippedKeysMap)
-        }
-    }
 
     /**
      * Symmetric Ratchet
