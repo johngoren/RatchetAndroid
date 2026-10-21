@@ -10,9 +10,8 @@ class Secret(bytes: ByteArray): SecureKey(bytes) {
     init {
         require(bytes.size == NUM_BYTES_IN_SECRET)
 
-
-        // All-zero check. This shouldn't ever happen, given the RFC 7748 protections, but just in case something
-        // gets changed up there...
+        // All-zero check. This shouldn't ever happen, given Bouncy Castle's RFC 7748 protections,
+        // but just in case something gets changed up there...
 
         var result = 0
         bytes.forEachIndexed { i, b ->

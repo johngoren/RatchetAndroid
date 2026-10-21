@@ -1,7 +1,5 @@
 package org.operatorfoundation.ratchet
 
-import org.bouncycastle.crypto.params.X25519PublicKeyParameters
-import org.bouncycastle.math.ec.rfc7748.X25519
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.Constants.MAX_COUNTER_NUM
 import org.operatorfoundation.ratchet.models.keys.RootKey
@@ -16,6 +14,7 @@ import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
 import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
+import kotlin.let
 
 /**
  * Main API for the Double Ratchet algorithm.
@@ -192,8 +191,13 @@ object Ratchet
             copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.copyBytes())
 
             copyOfOldState.use {
-                validateCounter(incomingCounter, it.counterIn)
-                checkForSkippedKeys(incomingCounter, it.counterIn)
+                val lastReceivedCounter = it.counterIn
+                validateCounter(incomingCounter, lastReceivedCounter)
+
+                var stateSkippingOverMissedKeys: RatchetState? = null
+                if (incomingCounter > lastReceivedCounter + 1) {
+                    stateSkippingOverMissedKeys = getStateWithSkippedKeys(it, incomingCounter)
+                }
 
                 val resultingRatchetState = DHRatchet.perform(
                     oldState = copyOfOldState,
@@ -224,18 +228,36 @@ object Ratchet
         }
     }
 
-    private fun checkForSkippedKeys(incomingCounter: Int, lastReceivedCounterNum: Int) {
-        if (incomingCounter > lastReceivedCounterNum + 1) {
-            handleSkippedKeys()
-        }
-    }
+    private fun getStateWithSkippedKeys(
+        state: RatchetState,
+        counter: Int
+    ): RatchetState {
+        val copyOfState = RatchetState(state)
 
-    private fun handleSkippedKeys() {
-        /**
-         *  TODO in Shout Messages road map: Implement this feature that was originally
-         *  deemed out of scope during development.
-         *
-         */
+         copyOfState.use {
+            val skippedKeysMap = it.skippedKeys.toMutableMap() ?: mutableMapOf()
+            val skipCount = counter - it.counterIn - 1
+            require(skipCount <= Constants.MAX_SKIP) { "Too many messages skipped: ($skipCount > ${Constants.MAX_SKIP})" }
+
+            var _state = RatchetState(it)
+            val lastCounterReceived = it.counterIn
+
+            for (counter in (lastCounterReceived) until counter) {
+                // Advance the symmetric ratchet to derive the key for the skipped counter
+                val copyOfStateCache = SymmetricRatchet.perform(_state)
+                _state.close()
+
+                _state = RatchetState(
+                    copyOfStateCache,
+                )
+                copyOfStateCache.close()
+
+                _state.messageKey?.let { messageKey ->
+                    skippedKeysMap[counter] = messageKey.copyBytes()
+                }
+            }
+            return RatchetState(_state, skippedKeys=skippedKeysMap)
+        }
     }
 
     /**

@@ -40,6 +40,7 @@ class RatchetState(
     val remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes())
     val counterIn = counterIn
     val counterOut = counterOut
+    val skippedKeys = HashMap(skippedKeys?.mapValues { it.value.copyOf() } ?: emptyMap())
 
     private var isDestroyed: Boolean = false
 
@@ -57,6 +58,7 @@ class RatchetState(
                 messageKey: MessageKey? = originalState.messageKey,
                 localEphemeralKeypair: EphemeralKeypair = originalState.localEphemeralKeypair,
                 remoteEphemeralPublicKey: EphemeralPublicKey = originalState.remoteEphemeralPublicKey,
+                skippedKeys: Map<Int, ByteArray>? = originalState.skippedKeys,
                 counterIn: Int = originalState.counterIn,
                 counterOut: Int = originalState.counterOut,
     ) : this(
@@ -67,6 +69,7 @@ class RatchetState(
             messageKey = if (messageKey != null) { MessageKey(messageKey.copyBytes())} else null,
             localEphemeralKeypair = localEphemeralKeypair.copyOf(),
             remoteEphemeralPublicKey = EphemeralPublicKey(remoteEphemeralPublicKey.copyBytes()),
+            skippedKeys = skippedKeys,
             counterIn = counterIn,
             counterOut = counterOut
         ) {
@@ -86,6 +89,7 @@ class RatchetState(
         messageKey?.close()
         localEphemeralKeypair.close()
         remoteEphemeralPublicKey.close()
+        skippedKeys.values.forEach { it.fill(0) }
     }
 
 }
