@@ -141,13 +141,13 @@ class RatchetIntegrationTest {
         }
 
         // Need to do DH ratchet first to get ephemeral keys
-        val initialState = Ratchet.initRatchetState(
+        val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
             bobPublicKey!!
         )
 
         val state1 = Ratchet.dhRatchet(
-            initialState, aliceKeypair, incomingEphemeralKey)
+            alice0, aliceKeypair, incomingEphemeralKey)
 
         var state1chainKey: ByteArray? = null
         var state1rootKey: ByteArray? = null

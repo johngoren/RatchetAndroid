@@ -111,32 +111,31 @@ class RatchetUnitTests {
 
                 // Bob sends his ephemeral key
                 val bobEphemeralKeypair = mockEphemeralKeypair()
+                val bobPublicKey = bobEphemeralKeypair.publicKeyCopyForTesting
 
-                bobEphemeralKeypair.consume { bobPublicKey, bobPrivateKey ->
+                Ratchet.ratchetForReceive(it, bobPublicKey, 1)
+                    .use { ratchetedState ->
 
-                    Ratchet.ratchetForReceive(it, bobPublicKey)
-                        .use { ratchetedState ->
+                        assertNotNull(ratchetedState.chainKey)
+                        assertNotNull(ratchetedState.sharedKey)
+                        assertNotNull(ratchetedState.messageKey)
+                        assertNotNull(ratchetedState.remoteEphemeralPublicKey)
 
-                            assertNotNull(ratchetedState.chainKey)
-                            assertNotNull(ratchetedState.sharedKey)
-                            assertNotNull(ratchetedState.messageKey)
-                            assertNotNull(ratchetedState.remoteEphemeralPublicKey)
+                        // Should now have all ephemeral state
 
-                            // Should now have all ephemeral state
+                        // Message number should increment
 
-                            // Message number should increment
+                        assertEquals(1, ratchetedState.messageNumber)
 
-                            assertEquals(1, ratchetedState.messageNumber)
+                        // Root key should be different from initial
+                        assertFalse(copyOfRootKeyInitial.contentEquals(ratchetedState.rootKey.bytesForTesting))
 
-                            // Root key should be different from initial
-                            assertFalse(copyOfRootKeyInitial.contentEquals(ratchetedState.rootKey.bytesForTesting))
+                        // All keys should be 32 bytes
+                        assertEquals(32, ratchetedState.chainKey!!.bytesForTesting.size)
+                        assertEquals(32, ratchetedState.sharedKey!!.bytesForTesting.size)
+                        assertEquals(32, ratchetedState.messageKey!!.bytesForTesting.size)
 
-                            // All keys should be 32 bytes
-                            assertEquals(32, ratchetedState.chainKey!!.bytesForTesting.size)
-                            assertEquals(32, ratchetedState.sharedKey!!.bytesForTesting.size)
-                            assertEquals(32, ratchetedState.messageKey!!.bytesForTesting.size)
-
-                        }
+                    }
                 }
             }
         }
@@ -563,6 +562,3 @@ class RatchetUnitTests {
         }
     }
 
-
-
-}

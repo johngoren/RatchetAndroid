@@ -2,6 +2,7 @@ package org.operatorfoundation.ratchet.utils
 
 import org.operatorfoundation.ratchet.Ratchet.NUM_BYTES_IN_SESSION_NONCE
 import org.operatorfoundation.ratchet.Ratchet.RADIX_FOR_COUNTER_ENCODING
+import org.operatorfoundation.ratchet.ratchets.MonotonicCounter
 import java.nio.ByteBuffer
 
 object ContextField {
@@ -26,7 +27,7 @@ object ContextField {
             .array()
     }
 
-    fun getInfoWithCounter(prefix: String, counter: Int): ByteArray {
+    fun getInfoWithCounter(prefix: String, counter: MonotonicCounter): ByteArray {
         val prefixBytes = prefix.toByteArray(Charsets.UTF_8)
         val counterBytes = numberToHexBytes(counter)
         val bufferSize = prefixBytes.size + counterBytes.size

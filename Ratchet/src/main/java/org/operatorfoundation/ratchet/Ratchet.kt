@@ -8,6 +8,7 @@ import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 import org.operatorfoundation.ratchet.ratchets.DHRatchet
+import org.operatorfoundation.ratchet.ratchets.MonotonicCounter
 import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
 import org.operatorfoundation.ratchet.utils.ContextField
 import org.operatorfoundation.ratchet.utils.ECDH
@@ -184,7 +185,7 @@ object Ratchet
      * @return The updated ratchet state
      */
 
-    fun ratchetForReceive(oldState: RatchetState, incomingEphemeralPublicKey: EphemeralPublicKey, incomingCounter: Int? = null): RatchetState {
+    fun ratchetForReceive(oldState: RatchetState, incomingEphemeralPublicKey: EphemeralPublicKey, incomingCounter: Int = 1): RatchetState {
         var copyOfOldState: RatchetState? = null
         var copyOfLocalEphemeralKeypair: EphemeralKeypair? = null
         var copyOfIncomingEphemeralPublicKey: EphemeralPublicKey? = null
@@ -195,9 +196,7 @@ object Ratchet
             copyOfIncomingEphemeralPublicKey = EphemeralPublicKey(incomingEphemeralPublicKey.copyBytes())
 
             copyOfOldState.use {
-                incomingCounter?.also { counter->
-                    validateCounter(counter, it.counterIn)
-                }
+                validateCounter(incomingCounter, it.counterIn)
 
                 val resultingRatchetState = DHRatchet.perform(
                     oldState = copyOfOldState,
@@ -241,13 +240,15 @@ object Ratchet
     fun dhRatchet(
         oldState: RatchetState,
         localEphemeralKeypair: EphemeralKeypair,          // TODO: Safe to make this non-nullable?
-        incomingPublicKey: EphemeralPublicKey           // Incoming ephemeral PK
+        incomingPublicKey: EphemeralPublicKey,
+        counter: MonotonicCounter = 1
     ): RatchetState {
 
         return DHRatchet.perform(
             oldState,
             localEphemeralKeypair,
-            incomingPublicKey
+            incomingPublicKey,
+            counter
         )
     }
 

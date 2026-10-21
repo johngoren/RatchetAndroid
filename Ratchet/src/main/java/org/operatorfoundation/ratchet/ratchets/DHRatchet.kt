@@ -29,6 +29,8 @@ import org.operatorfoundation.ratchet.utils.HMAC
  * @return The updated ratchet state
  */
 
+typealias MonotonicCounter = Int
+
 object DHRatchet {
 
     // TODO: Defensive quality checks around any incoming key.
@@ -37,7 +39,7 @@ object DHRatchet {
         oldState: RatchetState,
         localEphemeralKeypair: EphemeralKeypair,
         remotePublicKey: EphemeralPublicKey,
-        counter: Int? = null
+        counter: MonotonicCounter
     ): RatchetState
     {
         val copyOfOldState = RatchetState(oldState)
@@ -87,7 +89,7 @@ object DHRatchet {
             // Derive new root and chain keys:
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to counter nonce})
 
-            val contextBoundToCounter = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter ?: 0) // TODO: Remove fallback
+            val contextBoundToCounter = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter)
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey,
