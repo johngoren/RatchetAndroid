@@ -12,9 +12,10 @@ object ECDH {
      * Perform Elliptic Curve Diffie-Hellman key exchange using BouncyCastle
      *
      */
+
     fun perform(privateKey: PrivateKey, publicKey: EphemeralPublicKey): Secret
     {
-        require(privateKey.isUsable() && publicKey.isUsable()) { "Expired key or keys" }
+        require(privateKey.isUsable() && publicKey.isUsable()) { "** Expired key** " }
 
         val copyOfPrivateKey = PrivateKey(privateKey.copyBytes())
         val copyOfPublicKey = EphemeralPublicKey(publicKey.copyBytes())
@@ -27,14 +28,13 @@ object ECDH {
         try {
             // BouncyCastle X25519 key agreement
 
-            // Ensure we have the correct key sizes
             require(copyOfPrivateKeyBytes.size == NUM_BYTES_IN_KEY) { "Private key must be $NUM_BYTES_IN_KEY bytes" }
             require(copyOfPublicKeyBytes.size == NUM_BYTES_IN_KEY) { "Public key must be $NUM_BYTES_IN_KEY bytes" }
 
             // Perform X25519 scalar multiplication: shared_secret = privateKey * publicKey
             sharedSecret = ByteArray(NUM_BYTES_IN_KEY)
 
-            // RFC 7748 guards against invalid inputs
+            // The RFC 7748 check guards against the threat of the invalid zeroes array
             val successfulKeyAgreement = org.bouncycastle.math.ec.rfc7748.X25519.calculateAgreement(
                 copyOfPrivateKeyBytes,
                 0,
@@ -50,7 +50,7 @@ object ECDH {
             return Secret(sharedSecret.copyOf())
         }
         catch(e: SecurityException) {
-            throw RedoHandshakeException(e.message ?: "An error ocurred during ECDH")
+            throw RedoHandshakeException(e.message ?: "An error occurred during ECDH")
         }
         catch(e: Exception) {
             throw e
@@ -61,5 +61,4 @@ object ECDH {
             sharedSecret?.fill(0)
         }
     }
-
 }
