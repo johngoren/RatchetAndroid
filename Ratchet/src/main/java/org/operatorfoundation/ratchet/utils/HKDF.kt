@@ -48,20 +48,25 @@ object HKDF {
     fun forRootKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
         val salt = (ContextField.RootKey.SALT).toByteArray(Charsets.UTF_8)
+        var prk: ByteArray? = null
 
         // TODO: Enforce proper secret size inside sharedSecret.
 
         return try {
             sharedSecret.consume { sharedKey ->
                 // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)
-                val prk = HMAC.perform(salt, sharedKey)
+                prk = HMAC.perform(salt, sharedKey)
 
                 // HKDF-Expand: Generate 32-bytes
                 newOutput = HMAC.perform(prk, info + byteArrayOf(0x01))
             }
-            newOutput ?: throw Exception("Something went wrong")
+            newOutput?.copyOf() ?: throw Exception("Something went wrong")
         } catch (e: Exception) {
             throw e
+        }
+        finally {
+            prk?.fill(0)
+            newOutput?.fill(0)
         }
     }
 
