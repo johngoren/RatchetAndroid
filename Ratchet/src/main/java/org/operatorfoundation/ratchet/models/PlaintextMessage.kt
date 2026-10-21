@@ -131,11 +131,7 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
     }
 
     override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is PlaintextMessage) return false
-        if (type != other.type) return false
-
-        return bytes.contentEquals(other.bytes)
+        throw Exception("Equality comparison has been disabled for security.")
     }
 
     override fun hashCode(): Int

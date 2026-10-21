@@ -54,9 +54,6 @@ object DHRatchet {
         var copyOfOldRootKey: ByteArray? = null
         var copyOfSessionId: ByteArray? = null
 
-        var counterLastSent: Int? = null
-        var counterLastReceived: Int? = null
-
         var messageNum: Int? = null
         var sharedSecret: Secret? = null
         var hkdfOutput: ByteArray? = null
@@ -88,14 +85,14 @@ object DHRatchet {
             newSharedKey = SharedKey.fromECDH(sharedSecret)
 
             // Derive new root and chain keys:
-            // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to session and counter nonces})
+            // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to counter nonce})
 
-            val contextBoundToSessionAndCounterNonces = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter ?: 0) // TODO: Remove fallback
+            val contextBoundToCounter = ContextField.getInfoWithCounter(ContextField.ChainKey.INFOPREFIX, counter ?: 0) // TODO: Remove fallback
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey,
                 sharedSecret,
-                contextBoundToSessionAndCounterNonces
+                contextBoundToCounter
             )
             newRootKey = RootKey.fromHKDF(hkdfOutput)       // First 32 bytes
             newChainKey = ChainKey.fromHKDF(hkdfOutput)     // Second 32 bytes
@@ -121,9 +118,7 @@ object DHRatchet {
                         Curve25519PrivateKey(copyOfLocalEphemeralPrivateKey!!)
                     )
                 ),
-                remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey),
-                counterIn = counterLastReceived ?: 0,
-                counterOut = counterLastSent ?: 0
+                remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey)
             )
             newState
         }

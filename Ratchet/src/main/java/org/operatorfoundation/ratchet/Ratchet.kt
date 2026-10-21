@@ -20,7 +20,6 @@ import org.operatorfoundation.ratchet.utils.HKDF
  * asynchronous messaging by combining a Diffie-Hellman ratchet with a
  * symmetric key ratchet.
  *
- *
  */
 
 class RedoHandshakeException(message: String = "Something went wrong. You need to renegotiate the handshake"): Exception(message)
@@ -48,8 +47,6 @@ object Ratchet
      * @param initialRemotePublicKey The remote party's first ephemeral public key
      * @return The initial ratchet state
      */
-
-    // TODO: Avoid nonce reuse. We can keep the session ID out of the context? But use it to establish the initial state...
 
     fun initRatchetState(
         initialLocalKeypair: EphemeralKeypair,
@@ -85,7 +82,7 @@ object Ratchet
                 // New derivation step to make sure we don't use secret key material directly
                 hkdfOutput = HKDF.forRootKeyMaterial(
                     initialSharedSecret,
-                    ContextField.getInfoForInit(ContextField.RootKey.INFOPREFIX, copyOfSessionId.copyOf())
+                    ContextField.getInfoForInit(ContextField.Init.INFOPREFIX, copyOfSessionId.copyOf())
                 )
 
                 // Return initial state with defaults for optional fields

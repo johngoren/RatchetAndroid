@@ -359,12 +359,12 @@ class RatchetIntegrationTest {
         val bobKeypair = mockEphemeralKeypair()
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            val result = Ratchet.ratchetForSend(secureInitialState)
+            val result = Ratchet.ratchetForSend(initialState)
 
             result.state.use { statePeek ->
 
@@ -394,13 +394,13 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
 
-            val result = Ratchet.ratchetForSend(secureInitialState)
+            val result = Ratchet.ratchetForSend(initialState)
             result.state.use { state ->
 
                 val messageTypes = listOf(
@@ -431,17 +431,17 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            secureInitialState.use { initialState ->
+            initialState.use { initialState ->
 
                 assertEquals(0, initialState.messageNumber)
 
                 // DH ratchet increments to 1
-                val result = Ratchet.ratchetForSend(secureInitialState)
+                val result = Ratchet.ratchetForSend(initialState)
 
                 result.state.use {
                     assertEquals(1, it.messageNumber)
@@ -469,12 +469,12 @@ class RatchetIntegrationTest {
 
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
 
-            val secureInitialState = Ratchet.initRatchetState(
+            val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
                 bobPublicKey
             )
 
-            val result = Ratchet.ratchetForSend(secureInitialState)
+            val result = Ratchet.ratchetForSend(initialState)
             val state1 = result.state
 
             state1.use { state1Peek ->
