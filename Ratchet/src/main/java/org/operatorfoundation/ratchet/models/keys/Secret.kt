@@ -1,10 +1,7 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.Constants
-import org.operatorfoundation.ratchet.Constants.NUM_BYTES_IN_SECRET
+import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_SECRET
 import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
-import kotlin.or
-import kotlin.text.get
 
 class Secret(bytes: ByteArray): SecureKey(bytes) {
     init {

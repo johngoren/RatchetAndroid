@@ -1,7 +1,6 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.bouncycastle.crypto.params.X25519PublicKeyParameters
-import org.operatorfoundation.ratchet.Constants
+import org.operatorfoundation.ratchet.Config
 import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 
 
@@ -12,6 +11,6 @@ import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 class EphemeralPublicKey(bytes: ByteArray, val counter: Int? = null): SecureKey(bytes.copyOf()) {
 
     init {
-        require(bytes.size == Constants.NUM_BYTES_IN_KEY)
+        require(bytes.size == Config.NUM_BYTES_IN_KEY)
     }
 }

@@ -1,7 +1,7 @@
 package org.operatorfoundation.ratchet
 
 import org.operatorfoundation.madh.MADH
-import org.operatorfoundation.ratchet.Constants.MAX_COUNTER_NUM
+import org.operatorfoundation.ratchet.Config.MAX_COUNTER_NUM
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
@@ -14,8 +14,6 @@ import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
 import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
 import org.operatorfoundation.ratchet.utils.HKDF
-import org.operatorfoundation.ratchet.utils.SkippedKeys
-import kotlin.let
 
 /**
  * Main API for the Double Ratchet algorithm.
@@ -53,6 +51,7 @@ object Ratchet
     fun initRatchetState(
         initialLocalKeypair: EphemeralKeypair,
         initialRemotePublicKey: EphemeralPublicKey,
+        sessionId: ByteArray
     ): RatchetState
     {
         var copyOfRemotePublicKey: EphemeralPublicKey? = null
@@ -79,11 +78,12 @@ object Ratchet
 
                 hkdfOutput = HKDF.forRootKeyMaterial(
                     initialSharedSecret,
-                    KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, 0)
+                    KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, sessionId, 0)
                 )
 
                 // Return initial state with defaults for optional fields
                 newState = RatchetState(
+                    sessionId = sessionId,
                     rootKey = RootKey.fromHKDF(hkdfOutput.copyOf()),
                     localEphemeralKeypair = copyOfInitialLocalKeypair.copyOf(),
                     remoteEphemeralPublicKey = EphemeralPublicKey(copyOfRemotePublicKey.copyBytes())
@@ -137,7 +137,7 @@ object Ratchet
 
                 val dhCounter = it.counterOut + 1
                 if (dhCounter > MAX_COUNTER_NUM) {
-                    throw RedoHandshakeException("Maximum number of Shout messages exceeded. User needs to redo handshake.")
+                    throw RedoHandshakeException("Maximum number of messages exceeded. User needs to redo handshake.")
                 }
 
                 val ratchetedState = DHRatchet.perform(
@@ -195,14 +195,16 @@ object Ratchet
                 val lastReceivedCounter = it.counterIn
                 validateCounter(incomingCounter, lastReceivedCounter)
 
-                var stateSkippingOverMissedKeys: RatchetState? = null
-                if (incomingCounter > lastReceivedCounter + 1) {
-                    stateSkippingOverMissedKeys = SkippedKeys.handle(it, incomingCounter)
-                    copyOfOldState.close()
-                }
+                // Skipped Keys feature is under construction - see note in SkippedKeys class
+//                var stateSkippingOverMissedKeys: RatchetState? = null
+//
+//                if (incomingCounter > lastReceivedCounter + 1) {
+//                    stateSkippingOverMissedKeys = SkippedKeys.handle(it, incomingCounter)
+//                    copyOfOldState.close()
+//                }
 
                 val resultingRatchetState = DHRatchet.perform(
-                    oldState = stateSkippingOverMissedKeys ?: copyOfOldState,
+                    oldState = copyOfOldState,
                     localEphemeralKeypair = copyOfLocalEphemeralKeypair,
                     remotePublicKey = copyOfIncomingEphemeralPublicKey,
                     counter = incomingCounter

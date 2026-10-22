@@ -3,7 +3,7 @@ package org.operatorfoundation.ratchet.ratchets
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
-import org.operatorfoundation.ratchet.Constants.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
@@ -48,6 +48,7 @@ object DHRatchet {
         var newSharedKey: SharedKey? = null
         var newMessageKey: MessageKey? = null
 
+        var copyOfSessionId: ByteArray? = null
         var copyOfLocalEphemeralPublicKey: ByteArray? = null
         var copyOfLocalEphemeralPrivateKey: ByteArray? = null
         var copyOfRemotePublicKey: ByteArray? = remotePublicKey.copyBytes()
@@ -65,17 +66,18 @@ object DHRatchet {
                 copyOfLocalEphemeralPrivateKey = localPrivateKey.copyBytes()
             }
             require(copyOfLocalEphemeralPrivateKey?.size == NUM_BYTES_IN_KEY) { "ECDHE key is wrong size "}
-
             copyOfRemotePublicKey = remotePublicKey.copyBytes()
             copyOfOldState.use {
                 it.apply {
                     copyOfOldRootKey = rootKey.copyBytes()
                     messageNum = messageNumber
+                    copyOfSessionId = sessionId
                 }
             }
 
             require(copyOfOldRootKey != null) { "No copy of old root key " }
             require(messageNum != null) { "No copy of message number " }
+            require(copyOfSessionId != null) { "No copy of sessionID" }
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
             sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey.copyOf()), EphemeralPublicKey(copyOfRemotePublicKey))
@@ -84,12 +86,12 @@ object DHRatchet {
             // Derive new root and chain keys:
             // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to counter nonce})
 
-            val contextBoundToCounter = KeyContext.getInfoWithCounter(KeyContext.ChainKey.INFOPREFIX, counter)
+            val contextBoundToSessionIdAndCounter = KeyContext.getInfoWithCounter(KeyContext.ChainKey.INFOPREFIX, copyOfSessionId, counter)
 
             hkdfOutput = HKDF.forRootAndChainMaterial(
                 copyOfOldRootKey,
                 sharedSecret,
-                contextBoundToCounter
+                contextBoundToSessionIdAndCounter
             )
             newRootKey = RootKey.fromHKDF(hkdfOutput)       // First 32 bytes
             newChainKey = ChainKey.fromHKDF(hkdfOutput)     // Second 32 bytes
@@ -109,6 +111,7 @@ object DHRatchet {
                 chainKey = newChainKey,
                 sharedKey = newSharedKey,
                 messageKey = newMessageKey,
+                sessionId = copyOfSessionId,
                 localEphemeralKeypair = EphemeralKeypair(
                     Curve25519KeyPair (
                         Curve25519PublicKey(copyOfLocalEphemeralPublicKey!!),

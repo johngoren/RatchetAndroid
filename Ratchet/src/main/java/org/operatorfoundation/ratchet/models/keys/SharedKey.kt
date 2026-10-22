@@ -1,6 +1,6 @@
 package org.operatorfoundation.ratchet.models.keys
 
-import org.operatorfoundation.ratchet.Constants.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
 import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 
 /**

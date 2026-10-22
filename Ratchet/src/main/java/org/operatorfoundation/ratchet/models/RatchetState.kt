@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.models
 
+import org.operatorfoundation.madh.SessionIdentifier
 import org.operatorfoundation.ratchet.models.keys.ChainKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
@@ -19,6 +20,7 @@ import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
  * @property remoteEphemeralPublicKey The remote party's ephemeral public key
  */
 class RatchetState(
+    sessionId: ByteArray,
     rootKey: RootKey,
     messageNumber: Int = 0,
     chainKey: ChainKey? = null,
@@ -41,6 +43,7 @@ class RatchetState(
     val counterIn = counterIn
     val counterOut = counterOut
     val skippedKeys = HashMap(skippedKeys?.mapValues { it.value.copyOf() } ?: emptyMap())
+    val sessionId = sessionId.copyOf()
 
     private var isDestroyed: Boolean = false
 
@@ -51,6 +54,7 @@ class RatchetState(
 
     // Secondary constructor for copying and mutating an existing state
     constructor(originalState: RatchetState,
+                sessionId: ByteArray = originalState.sessionId,
                 rootKey: RootKey = originalState.rootKey,
                 messageNumber: Int = originalState.messageNumber,
                 chainKey: ChainKey? = originalState.chainKey,
@@ -62,6 +66,7 @@ class RatchetState(
                 counterIn: Int = originalState.counterIn,
                 counterOut: Int = originalState.counterOut,
     ) : this(
+            sessionId = sessionId,
             rootKey = RootKey(rootKey.copyBytes()),
             messageNumber = messageNumber,
             chainKey = if (chainKey != null) { ChainKey(chainKey.copyBytes()) } else null,

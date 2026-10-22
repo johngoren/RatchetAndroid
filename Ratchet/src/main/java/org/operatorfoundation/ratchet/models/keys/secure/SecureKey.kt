@@ -1,8 +1,7 @@
 package org.operatorfoundation.ratchet.models.keys.secure
 
 import androidx.annotation.VisibleForTesting
-import org.operatorfoundation.ratchet.Constants.NUM_BYTES_IN_KEY
-import org.operatorfoundation.ratchet.Ratchet
+import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
 
 open class SecureKey(keyBytes: ByteArray): AutoCloseable {
     var isDestroyed: Boolean = false

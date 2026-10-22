@@ -2,8 +2,10 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Assert
 import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.Test
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
+import org.operatorfoundation.ratchet.TestUtils.mockRandomSessionId
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.models.RatchetState
@@ -17,6 +19,12 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RatchetHardeningTest {
+    lateinit var sessionId: ByteArray
+
+    @Before
+    fun setup() {
+        sessionId = mockRandomSessionId()
+    }
 
     @Test
     fun `Monotonic counter fails for invalid value`() {
@@ -27,7 +35,8 @@ class RatchetHardeningTest {
 
         val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
-            bobRemotePublicKey
+            bobRemotePublicKey,
+            sessionId
         )
 
         val alice1 = Ratchet.ratchetForReceive(alice0, bobRemotePublicKey, 1)
@@ -63,11 +72,13 @@ class RatchetHardeningTest {
 
         val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
-            bobRemotePublicKey
+            bobRemotePublicKey,
+            sessionId
         )
         val bob0 = Ratchet.initRatchetState(
             bobKeypair,
-            aliceRemotePublicKey
+            aliceRemotePublicKey,
+            sessionId
         )
 
         val bob1Result = Ratchet.ratchetForSend(bob0)

@@ -2,10 +2,12 @@ package org.operatorfoundation.ratchet
 
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.Before
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.PlaintextMessageType
 import org.operatorfoundation.ratchet.TestUtils.mockEphemeralKeypair
+import org.operatorfoundation.ratchet.TestUtils.mockRandomSessionId
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.MessageKey
@@ -14,6 +16,13 @@ import org.operatorfoundation.ratchet.utils.Encrypt
 
 
 class RatchetIntegrationTest {
+
+    lateinit var sessionId: ByteArray
+
+    @Before
+    fun setup() {
+        sessionId = mockRandomSessionId()
+    }
 
     @Test
     fun `both parties derive same initial root key`() {
@@ -26,12 +35,14 @@ class RatchetIntegrationTest {
 
                 val aliceSingleUseRatchetState = Ratchet.initRatchetState(
                     aliceSecureKeypair,
-                    bobPublicKey
+                    bobPublicKey,
+                    sessionId
                 )
 
                 val bobSingleUseRatchetState = Ratchet.initRatchetState(
                     bobSecureKeypair,
-                    alicePublicKey
+                    alicePublicKey,
+                    sessionId
                 )
 
                 var aliceRootKey: ByteArray? = null
@@ -60,7 +71,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             initialState.use { state0 ->
@@ -98,7 +110,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             initialState.use { initialState ->
@@ -143,7 +156,8 @@ class RatchetIntegrationTest {
         // Need to do DH ratchet first to get ephemeral keys
         val alice0 = Ratchet.initRatchetState(
             aliceKeypair,
-            bobPublicKey!!
+            bobPublicKey!!,
+            sessionId
         )
 
         val state1 = Ratchet.dhRatchet(
@@ -192,7 +206,7 @@ class RatchetIntegrationTest {
                 }
                 assertArrayEquals(
                     state1remoteEphemeralPublicKey,
-                    state2.remoteEphemeralPublicKey?.bytesForTesting
+                    state2.remoteEphemeralPublicKey.bytesForTesting
                 )
 
                 // Message number should increment
@@ -210,7 +224,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             initialState.use { initialState ->
@@ -244,7 +259,8 @@ class RatchetIntegrationTest {
 
         val initialState = Ratchet.initRatchetState(
             aliceKeypair,
-            copyOfBobPublicKey
+            copyOfBobPublicKey,
+            sessionId
         )
 
         initialState.use { initialState ->
@@ -288,7 +304,8 @@ class RatchetIntegrationTest {
 
         val initialState = Ratchet.initRatchetState(
             aliceKeypair,
-            bobPublicKey
+            bobPublicKey,
+            sessionId
         )
 
         val result = Ratchet.ratchetForSend(initialState)
@@ -331,7 +348,8 @@ class RatchetIntegrationTest {
 
         val initialState = Ratchet.initRatchetState(
             aliceKeypair,
-            copyOfBobPublicKey!!
+            copyOfBobPublicKey!!,
+            sessionId
         )
 
         // Perform first DH ratchet with ephemeral keys
@@ -361,7 +379,8 @@ class RatchetIntegrationTest {
         bobKeypair.consume { bobPublicKey, bobPrivateKey ->
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             val result = Ratchet.ratchetForSend(initialState)
@@ -396,7 +415,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
 
@@ -433,7 +453,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             initialState.use { initialState ->
@@ -471,7 +492,8 @@ class RatchetIntegrationTest {
 
             val initialState = Ratchet.initRatchetState(
                 aliceKeypair,
-                bobPublicKey
+                bobPublicKey,
+                sessionId
             )
 
             val result = Ratchet.ratchetForSend(initialState)
