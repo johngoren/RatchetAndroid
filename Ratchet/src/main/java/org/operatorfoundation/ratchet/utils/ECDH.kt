@@ -1,6 +1,7 @@
 package org.operatorfoundation.ratchet.utils
 
 import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
+import org.operatorfoundation.ratchet.BadKeyAgreementException
 import org.operatorfoundation.ratchet.RedoHandshakeException
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
@@ -45,7 +46,7 @@ object ECDH {
             )
             if (!successfulKeyAgreement) {
                 sharedSecret.fill(0)
-                throw SecurityException("Unsuccessful key agreement. Possibly bad peer key.")
+                throw BadKeyAgreementException()
             }
             return Secret(sharedSecret.copyOf())
         }

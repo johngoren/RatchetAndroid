@@ -1,5 +1,6 @@
 package org.operatorfoundation.ratchet.models
 
+import org.operatorfoundation.ratchet.Config.MAX_MESSAGE_BYTES
 import java.nio.ByteBuffer
 
 /**
@@ -50,9 +51,7 @@ class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCl
                 offset += 1
             }
 
-            require(messageLength >= 1) {
-                "Message length must be at least 1"
-            }
+            require(messageLength >= 1) { "Message length must be at least 1" }
             require(data.size >= offset + messageLength) { "Data too short for message content" }
 
             // Read message type (1 byte)
@@ -87,6 +86,8 @@ class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCl
      */
     fun toBytes(): ByteArray
     {
+        require(bytes.size < MAX_MESSAGE_BYTES) { "Data too large for file format"}
+
         // Calculate total message length (type byte + content)
         val messageLength = 1 + bytes.size
 

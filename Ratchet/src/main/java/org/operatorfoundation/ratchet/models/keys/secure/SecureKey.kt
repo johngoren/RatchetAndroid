@@ -62,7 +62,7 @@ open class SecureKey(keyBytes: ByteArray, val createdAt: Long = System.currentTi
     }
 
     private fun getMessageDescribingKeyDestruction(): String {
-        return "Key ${this.javaClass.name} has been destroyed "
+        return "Key ${this.javaClass.name} has been destroyed."
     }
 
     private fun getMessageDescribingExpiredKey(): String {

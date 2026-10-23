@@ -6,6 +6,7 @@ object Config {
     const val NUM_BYTES_IN_SESSION_ID = 16
     const val NUM_BYTES_IN_SECRET = 32
     const val MAX_COUNTER_NUM = 65535
+    const val MAX_MESSAGE_BYTES = 16777215
     const val RADIX_FOR_COUNTER_ENCODING = 16
     const val MAX_SKIP = 10
     const val LIFESPAN_DEFAULT_HOURS = 720
