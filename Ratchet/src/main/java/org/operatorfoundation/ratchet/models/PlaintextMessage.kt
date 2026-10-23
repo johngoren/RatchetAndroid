@@ -7,9 +7,10 @@ import java.nio.ByteBuffer
  *
  *
  */
-class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): AutoCloseable
+class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCloseable
 {
-
+    val bytes: ByteArray = bytes.copyOf()
+    
     companion object
     {
         /**
@@ -123,7 +124,7 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
     }
 
     override fun equals(other: Any?): Boolean {
-        throw Exception("Equality comparison has been disabled for security.")
+        throw SecurityException("Equality comparison has been disabled for security.")
     }
 
     override fun hashCode(): Int
