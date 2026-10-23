@@ -1,12 +1,13 @@
 package org.operatorfoundation.ratchet.models.keys
 
+import org.operatorfoundation.ratchet.Config.LIFESPAN_CHAIN_KEY_HOURS
 import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 
 /**
  * Represents the chain key in the double ratchet algorithm.
  * The chain key is used to derive message keys.
  */
-class ChainKey(bytes: ByteArray): SecureKey(bytes.copyOf())
+class ChainKey(bytes: ByteArray): SecureKey(bytes.copyOf(), lifespanHours = LIFESPAN_CHAIN_KEY_HOURS)
 {
     companion object
     {

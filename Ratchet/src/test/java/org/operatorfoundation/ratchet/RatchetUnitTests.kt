@@ -168,7 +168,7 @@ class RatchetUnitTests {
             bobPublicKeyCopy2,
         )
 
-        assertTrue(!state1.localEphemeralKeypair.isDestroyed)
+        assertTrue(state1.localEphemeralKeypair.isUsable)
 
         state1rootKey = state1.rootKey.bytesForTesting.copyOf()
         state1chainKey = state1.chainKey?.bytesForTesting?.copyOf()

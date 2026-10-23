@@ -7,11 +7,14 @@ import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
 
 open class SecureKey(keyBytes: ByteArray, val createdAt: Long = System.currentTimeMillis(), val lifespanHours: Int = Config.LIFESPAN_DEFAULT_HOURS): AutoCloseable {
     private var isDestroyed: Boolean = false
+
     private val isExpired: Boolean
         get() {
             val elapsedMs = System.currentTimeMillis() - createdAt
-            return elapsedMs > (lifespanHours * 3600000)
+            val elapsedHours = elapsedMs / 3600000
+            return elapsedMs > lifespanHours
         }
+
 
     private val _keyBytes: ByteArray
 

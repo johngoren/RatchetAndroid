@@ -1,12 +1,13 @@
 package org.operatorfoundation.ratchet.models.keys
 
+import org.operatorfoundation.ratchet.Config.LIFESPAN_ROOT_KEY_HOURS
 import org.operatorfoundation.ratchet.models.keys.secure.SecureKey
 
 /**
  * Represents the root key in the double ratchet algorithm.
  * The root key is used to derive chain keys.
  */
-class RootKey(bytes: ByteArray): SecureKey(bytes.copyOf())
+class RootKey(bytes: ByteArray): SecureKey(bytes.copyOf(), lifespanHours=LIFESPAN_ROOT_KEY_HOURS)
 {
 
     companion object

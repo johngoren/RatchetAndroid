@@ -10,10 +10,17 @@ import org.operatorfoundation.ratchet.models.keys.PrivateKey
 
 open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair, val createdAt: Long = System.currentTimeMillis(), val lifespanHours: Int = Config.LIFESPAN_DEFAULT_HOURS): AutoCloseable {
     private var isDestroyed: Boolean = false
-    private val isExpired: Boolean
+
+    val isUsable: Boolean
+        get() {
+            return !isDestroyed
+        }
+
+    private val areExpired: Boolean
         get() {
             val elapsedMs = System.currentTimeMillis() - createdAt
-            return elapsedMs > (lifespanHours * 3600000)
+            val elapsedHours = elapsedMs / 3600000
+            return elapsedHours > lifespanHours
         }
 
     private val _publicKeyBytes: ByteArray = curve25519KeyPair.publicKey.bytes.copyOf()
@@ -28,7 +35,7 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair, val createdAt:
 
     fun consume(block: (EphemeralPublicKey, PrivateKey)->Unit) {
         check(!isDestroyed) { "Ephemeral keypair has been destroyed "}
-        check(!isExpired) { getMessageDescribingExpiredKeypair() }
+        check(!areExpired) { getMessageDescribingExpiredKeypair() }
         if (!isDestroyed) {
             block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
             close()
