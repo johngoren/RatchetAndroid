@@ -12,7 +12,7 @@ open class SecureKey(keyBytes: ByteArray, val createdAt: Long = System.currentTi
         get() {
             val elapsedMs = System.currentTimeMillis() - createdAt
             val elapsedHours = elapsedMs / 3600000
-            return elapsedMs > lifespanHours
+            return elapsedHours > lifespanHours
         }
 
 
