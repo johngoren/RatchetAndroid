@@ -78,7 +78,7 @@ class PlaintextTests {
 
     @Test
     fun `PlaintextMessage will refuse to serialize content that exceeds size limit`() {
-        val excessivelyLongContent = ByteArray(5000000)
+        val excessivelyLongContent = ByteArray(20000000)
         val message = PlaintextMessage(PlaintextMessageType.DATA, bytes = excessivelyLongContent)
 
         assertFailsWith(
@@ -87,6 +87,19 @@ class PlaintextTests {
                 message.toBytes()
             }
         )
+    }
+
+    @Test
+    fun `PlaintextMessage handles unsigned byte length up to 255`() {
+        val content = ByteArray(150) { it.toByte() }
+        val message = PlaintextMessage(PlaintextMessageType.DATA, content)
+
+        val serialized = message.toBytes()
+        assertEquals(1, serialized[0].toInt())
+
+        val deserialized = PlaintextMessage.fromBytes(serialized)
+        assertEquals(PlaintextMessageType.DATA, deserialized.type)
+        assertArrayEquals(content, deserialized.bytes)
     }
 
     @Test

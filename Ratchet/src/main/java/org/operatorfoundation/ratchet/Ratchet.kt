@@ -54,9 +54,8 @@ object Ratchet
         sessionId: ByteArray
     ): RatchetState
     {
-        var copyOfRemotePublicKey: EphemeralPublicKey? = null
 
-        copyOfRemotePublicKey = EphemeralPublicKey(initialRemotePublicKey.copyBytes())
+        val copyOfRemotePublicKey = EphemeralPublicKey(initialRemotePublicKey.copyBytes())
 
         val copyOfInitialLocalKeypair = initialLocalKeypair.copyOf()
         var copyOfInitialLocalPrivateKey: PrivateKey? = null

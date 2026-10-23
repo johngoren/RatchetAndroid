@@ -34,14 +34,14 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
 
             var offset = 0
 
-            // Read number of bytes to expect in length (1 byte)
+            // Read single byte telling us how many bytes to expect for length
             val numBytesRepresentingLength = data[offset].toInt() and 0xFF
             offset += 1
 
             require(numBytesRepresentingLength in 1..MAX_NUM_BYTES_FOR_REPRESENTING_LENGTH) { "Invalid length size: $numBytesRepresentingLength" }
             require(data.size >= offset + numBytesRepresentingLength) { "Data too short for length field" }
 
-            // Read actual length (N bytes, big-endian, signed)
+            // Knowing how many bytes to read, we now read the actual length (N bytes, big-endian, unsigned)
             var messageLength = 0
             for (i in 0 until numBytesRepresentingLength)
             {
@@ -49,17 +49,9 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
                 offset += 1
             }
 
-            val maxAllowedLength = when(numBytesRepresentingLength) {
-                1 -> 0x7F
-                2 -> 0x7FFF
-                3 -> 0x7FFFF
-                else -> 0
+            require(messageLength >= 1) {
+                "Message length must be at least 1"
             }
-
-            require(messageLength in 1..maxAllowedLength) {
-                "Length $messageLength does not fall within allowable values for $numBytesRepresentingLength byte(s)"
-            }
-
             require(data.size >= offset + messageLength) { "Data too short for message content" }
 
             // Read message type (1 byte)
@@ -101,9 +93,9 @@ class PlaintextMessage(val type: PlaintextMessageType, val bytes: ByteArray): Au
         // Drop leading zeros as per spec
         val numBytesForLength = when
         {
-            messageLength <= 0x7F -> 1
-            messageLength <= 0x7FFF -> 2
-            messageLength <= 0x7FFFF -> 3
+            messageLength <= 0xFF -> 1
+            messageLength <= 0xFFFF -> 2
+            messageLength <= 0xFFFFFF -> 3
             else -> throw IllegalArgumentException("Plaintext message length exceeds maximum")
         }
 
