@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCloseable
 {
     val bytes: ByteArray = bytes.copyOf()
-    
+
     companion object
     {
         /**
@@ -97,7 +97,7 @@ class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCl
             messageLength <= 0xFF -> 1
             messageLength <= 0xFFFF -> 2
             messageLength <= 0xFFFFFF -> 3
-            else -> throw IllegalArgumentException("Plaintext message length exceeds maximum")
+            else -> throw IllegalArgumentException("Plaintext message length out of range")
         }
 
         // Allocate buffer
