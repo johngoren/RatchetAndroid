@@ -4,11 +4,17 @@ import androidx.annotation.VisibleForTesting
 import org.operatorfoundation.madh.Curve25519KeyPair
 import org.operatorfoundation.madh.Curve25519PrivateKey
 import org.operatorfoundation.madh.Curve25519PublicKey
+import org.operatorfoundation.ratchet.Config
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
 
-open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable {
-    var isDestroyed: Boolean = false
+open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair, val createdAt: Long = System.currentTimeMillis(), val lifespanHours: Int = Config.LIFESPAN_DEFAULT_HOURS): AutoCloseable {
+    private var isDestroyed: Boolean = false
+    private val isExpired: Boolean
+        get() {
+            val elapsedMs = System.currentTimeMillis() - createdAt
+            return elapsedMs > (lifespanHours * 3600000)
+        }
 
     private val _publicKeyBytes: ByteArray = curve25519KeyPair.publicKey.bytes.copyOf()
 
@@ -22,6 +28,7 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable
 
     fun consume(block: (EphemeralPublicKey, PrivateKey)->Unit) {
         check(!isDestroyed) { "Ephemeral keypair has been destroyed "}
+        check(!isExpired) { getMessageDescribingExpiredKeypair() }
         if (!isDestroyed) {
             block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
             close()
@@ -85,6 +92,11 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair): AutoCloseable
         get() {
             return _privateKeyBytes
         }
+
+    private fun getMessageDescribingExpiredKeypair(): String {
+        return "Keypair ${this.javaClass.name} has expired."
+    }
+
 
     companion object {
 

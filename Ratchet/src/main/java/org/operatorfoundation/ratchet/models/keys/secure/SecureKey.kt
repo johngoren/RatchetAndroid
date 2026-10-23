@@ -1,10 +1,17 @@
 package org.operatorfoundation.ratchet.models.keys.secure
 
 import androidx.annotation.VisibleForTesting
+import androidx.core.util.TimeUtils
+import org.operatorfoundation.ratchet.Config
 import org.operatorfoundation.ratchet.Config.NUM_BYTES_IN_KEY
 
-open class SecureKey(keyBytes: ByteArray): AutoCloseable {
-    var isDestroyed: Boolean = false
+open class SecureKey(keyBytes: ByteArray, val createdAt: Long = System.currentTimeMillis(), val lifespanHours: Int = Config.LIFESPAN_DEFAULT_HOURS): AutoCloseable {
+    private var isDestroyed: Boolean = false
+    private val isExpired: Boolean
+        get() {
+            val elapsedMs = System.currentTimeMillis() - createdAt
+            return elapsedMs > (lifespanHours * 3600000)
+        }
 
     private val _keyBytes: ByteArray
 
@@ -17,6 +24,8 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
 
     fun consume(block: (ByteArray)->Unit) {
         check(!isDestroyed) { getMessageDescribingKeyDestruction() }
+        check(!isExpired) { getMessageDescribingExpiredKey() }
+
         if (!isDestroyed) {
             block(_keyBytes)
         }
@@ -51,6 +60,10 @@ open class SecureKey(keyBytes: ByteArray): AutoCloseable {
 
     private fun getMessageDescribingKeyDestruction(): String {
         return "Key ${this.javaClass.name} has been destroyed "
+    }
+
+    private fun getMessageDescribingExpiredKey(): String {
+        return "Key ${this.javaClass.name} has expired."
     }
 
     fun isUsable(): Boolean {
