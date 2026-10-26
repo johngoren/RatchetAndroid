@@ -38,4 +38,8 @@ object KeyContext {
         const val INFOPREFIX = "SHOUT-CHAIN"
     }
 
+    object SharedKey {
+        const val INFOPREFIX = "SHOUT_SHARED_KEY"
+    }
+
 }

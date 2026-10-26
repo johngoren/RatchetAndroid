@@ -45,6 +45,7 @@ object DHRatchet {
 
         var newChainKey: ChainKey? = null
         var newRootKey: RootKey? = null
+        var newSharedKeyMaterial: ByteArray? = null
         var newSharedKey: SharedKey? = null
         var newMessageKey: MessageKey? = null
 
@@ -81,22 +82,20 @@ object DHRatchet {
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
             sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey.copyOf()), EphemeralPublicKey(copyOfRemotePublicKey))
-            newSharedKey = SharedKey.fromECDH(sharedSecret)
+            val infoContext = KeyContext.getInfoWithCounter(KeyContext.SharedKey.INFOPREFIX, copyOfSessionId, counter)
 
-            // Derive new root and chain keys:
-            // now: (R_n, C_n) = HKDF(R_{n-1}, S_n, {info context binding the key to counter nonce})
-
-            val contextBoundToSessionIdAndCounter = KeyContext.getInfoWithCounter(KeyContext.ChainKey.INFOPREFIX, copyOfSessionId, counter)
-
-            hkdfOutput = HKDF.forRootAndChainMaterial(
-                copyOfOldRootKey,
+            newSharedKeyMaterial = HKDF.forSharedKeyMaterial(
                 sharedSecret,
-                contextBoundToSessionIdAndCounter
+                infoContext
             )
-            newRootKey = RootKey.fromHKDF(hkdfOutput)       // First 32 bytes
-            newChainKey = ChainKey.fromHKDF(hkdfOutput)     // Second 32 bytes
+            newSharedKey = SharedKey(newSharedKeyMaterial.copyOf())
 
-            copyOfNewChainKeyBytes = newChainKey.copyBytes()
+            // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
+            val hkdfOutput = HKDF.forRootAndChainMaterial(copyOfOldRootKey, newSharedKey, infoContext)
+            newRootKey = RootKey.fromHKDF(hkdfOutput)
+            newChainKey = ChainKey.fromHKDF(hkdfOutput)
+
+            copyOfNewChainKeyBytes = newChainKey?.copyBytes()
             require(copyOfNewChainKeyBytes != null) { "New chain key bytes were null"}
 
             // Increment message number and derive message key: M_n = HMAC(C_n, n)
@@ -134,6 +133,7 @@ object DHRatchet {
             copyOfRemotePublicKey?.fill(0)
             copyOfLocalEphemeralPrivateKey?.fill(0)
             copyOfNewChainKeyBytes?.fill(0)
+            newSharedKeyMaterial?.fill(0)
             sharedSecret?.close()
             hkdfOutput?.fill(0)
             hmacOutput?.fill(0)

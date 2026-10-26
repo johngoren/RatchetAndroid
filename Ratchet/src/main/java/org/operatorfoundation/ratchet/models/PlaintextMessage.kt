@@ -36,16 +36,15 @@ class PlaintextMessage(val type: PlaintextMessageType, bytes: ByteArray): AutoCl
 
             var offset = 0
 
-            // Read single byte telling us how many bytes to expect for length
-            val numBytesRepresentingLength = data[offset].toInt() and 0xFF
+            val numLengthBytes = data[offset].toInt() and 0xFF
             offset += 1
 
-            require(numBytesRepresentingLength in 1..MAX_NUM_BYTES_FOR_REPRESENTING_LENGTH) { "Invalid length size: $numBytesRepresentingLength" }
-            require(data.size >= offset + numBytesRepresentingLength) { "Data too short for length field" }
+            require(numLengthBytes in 1..MAX_NUM_BYTES_FOR_REPRESENTING_LENGTH) { "Invalid length size: $numLengthBytes" }
+            require(data.size >= offset + numLengthBytes) { "Data too short for length field" }
 
             // Knowing how many bytes to read, we now read the actual length (N bytes, big-endian, unsigned)
             var messageLength = 0
-            for (i in 0 until numBytesRepresentingLength)
+            for (i in 0 until numLengthBytes)
             {
                 messageLength = (messageLength shl 8) or (data[offset].toInt() and 0xFF)
                 offset += 1

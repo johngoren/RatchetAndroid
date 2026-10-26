@@ -25,7 +25,7 @@ import org.operatorfoundation.ratchet.utils.HKDF
  */
 
 class RedoHandshakeException(message: String = "Something went wrong. You need to renegotiate the handshake"): Exception(message)
-class BadKeyAgreementException(message: String = "We calculated a secret but it failed RFC 7748 guidelines. Try again"): Exception(message)
+class BadKeyAgreementException(message: String = "We calculated a secret but it failed RFC 7748 quality guidelines. Please renegotiate"): Exception(message)
 
 object Ratchet
 {

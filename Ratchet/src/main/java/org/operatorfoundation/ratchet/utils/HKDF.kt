@@ -1,6 +1,7 @@
 package org.operatorfoundation.ratchet.utils
 
 import org.operatorfoundation.ratchet.models.keys.Secret
+import org.operatorfoundation.ratchet.models.keys.SharedKey
 
 object HKDF {
     /**
@@ -10,10 +11,15 @@ object HKDF {
 
     fun forRootAndChainMaterial(
         oldRootKey: ByteArray,
-        sharedSecret: Secret,
+        sharedKey: SharedKey,
         info: ByteArray
     ): ByteArray {
-        val copyOfSharedSecret = Secret(sharedSecret.copyBytes())
+        var copyOfSharedKey: SharedKey? = null
+        sharedKey.use {
+            copyOfSharedKey = SharedKey(it.copyBytes())
+        }
+        require(copyOfSharedKey != null) { "No copy found of shared key"}
+
         var result: ByteArray? = null
 
         var prk: ByteArray? = null
@@ -21,7 +27,7 @@ object HKDF {
         var t2: ByteArray? = null
 
         try {
-            copyOfSharedSecret.consume { sharedKey ->
+            copyOfSharedKey.consume { sharedKey ->
                 // HKDF-Extract: PRK = HMAC(salt=oldRootKey, ikm=sharedKey)
                 prk = HMAC.perform(oldRootKey, sharedKey)
 
@@ -38,6 +44,7 @@ object HKDF {
             throw SecurityException(e.message)
         }
         finally {
+            copyOfSharedKey.close()
             prk?.fill(0)
             t1?.fill(0)
             t2?.fill(0)
@@ -46,6 +53,29 @@ object HKDF {
     }
 
     fun forRootKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
+        var newOutput: ByteArray? = null
+        val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
+        var prk: ByteArray? = null
+
+        return try {
+            sharedSecret.consume { sharedKey ->
+                // HKDF-Extract: PRK = HMAC(salt=sharedSecret.bytes, ikm=sharedKey)
+                prk = HMAC.perform(salt, sharedKey)
+
+                // HKDF-Expand: Generate 32-bytes
+                newOutput = HMAC.perform(prk, info + byteArrayOf(0x01))
+            }
+            newOutput?.copyOf() ?: throw Exception("Something went wrong")
+        } catch (e: Exception) {
+            throw e
+        }
+        finally {
+            prk?.fill(0)
+            newOutput?.fill(0)
+        }
+    }
+
+    fun forSharedKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
         val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
         var prk: ByteArray? = null
