@@ -14,10 +14,7 @@ object HKDF {
         sharedKey: SharedKey,
         info: ByteArray
     ): ByteArray {
-        var copyOfSharedKey: SharedKey? = null
-        sharedKey.use {
-            copyOfSharedKey = SharedKey(it.copyBytes())
-        }
+        val copyOfSharedKey: SharedKey? = SharedKey(sharedKey.copyBytes())
         require(copyOfSharedKey != null) { "No copy found of shared key"}
 
         var result: ByteArray? = null

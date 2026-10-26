@@ -82,16 +82,17 @@ object DHRatchet {
 
             // Perform ECDH with new keys: S_r = ECDH(priv_r, k_r)
             sharedSecret = ECDH.perform(PrivateKey(copyOfLocalEphemeralPrivateKey.copyOf()), EphemeralPublicKey(copyOfRemotePublicKey))
-            val infoContext = KeyContext.getInfoWithCounter(KeyContext.SharedKey.INFOPREFIX, copyOfSessionId, counter)
+            val infoContextSharedKey = KeyContext.getInfoWithCounter(KeyContext.SharedKey.INFOPREFIX, copyOfSessionId, counter)
 
             newSharedKeyMaterial = HKDF.forSharedKeyMaterial(
                 sharedSecret,
-                infoContext
+                infoContextSharedKey
             )
             newSharedKey = SharedKey(newSharedKeyMaterial.copyOf())
 
             // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
-            val hkdfOutput = HKDF.forRootAndChainMaterial(copyOfOldRootKey, newSharedKey, infoContext)
+            val infoContextRootAndChain = KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, copyOfSessionId, counter)
+            val hkdfOutput = HKDF.forRootAndChainMaterial(copyOfOldRootKey, newSharedKey, infoContextRootAndChain)
             newRootKey = RootKey.fromHKDF(hkdfOutput)
             newChainKey = ChainKey.fromHKDF(hkdfOutput)
 
