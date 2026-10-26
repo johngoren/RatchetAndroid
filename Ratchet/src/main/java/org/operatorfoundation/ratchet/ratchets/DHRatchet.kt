@@ -91,7 +91,7 @@ object DHRatchet {
             newSharedKey = SharedKey(newSharedKeyMaterial.copyOf())
 
             // Derive new root and chain keys: (R_n, C_n) = HKDF(R_{n-1}, S_n, "SHOUT")
-            val infoContextRootAndChain = KeyContext.getInfoWithCounter(KeyContext.RootKey.INFOPREFIX, copyOfSessionId, counter)
+            val infoContextRootAndChain = KeyContext.getInfoWithCounter(KeyContext.RootAndChainKeys.INFOPREFIX, copyOfSessionId, counter)
             val hkdfOutput = HKDF.forRootAndChainMaterial(copyOfOldRootKey, newSharedKey, infoContextRootAndChain)
             newRootKey = RootKey.fromHKDF(hkdfOutput)
             newChainKey = ChainKey.fromHKDF(hkdfOutput)

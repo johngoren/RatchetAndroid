@@ -30,9 +30,14 @@ object KeyContext {
         const val INFOPREFIX = "SHOUT-ROOT"
     }
 
+    object RootAndChainKeys {
+        const val SALT = "SHOUT-v1-Salt-RootAndChainKeys"
+        const val INFOPREFIX = "SHOUT-ROOT-AND-CHAIN"
+    }
+
     object SharedKey {
         const val SALT = "Shout-v1-Salt-SharedKey"
-        const val INFOPREFIX = "SHOUT_SHARED_KEY"
+        const val INFOPREFIX = "SHOUT-SHARED-KEY"
     }
 
 }
