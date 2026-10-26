@@ -25,20 +25,13 @@ object KeyContext {
             .toByteArray(Charsets.UTF_8)
     }
 
-    object Init {
-        const val INFOPREFIX = "SHOUT-INIT"
-    }
-
     object RootKey {
         const val SALT = "SHOUT-v1-Salt-RootKey"
         const val INFOPREFIX = "SHOUT-ROOT"
     }
 
-    object ChainKey {
-        const val INFOPREFIX = "SHOUT-CHAIN"
-    }
-
     object SharedKey {
+        const val SALT = "Shout-v1-Salt-SharedKey"
         const val INFOPREFIX = "SHOUT_SHARED_KEY"
     }
 

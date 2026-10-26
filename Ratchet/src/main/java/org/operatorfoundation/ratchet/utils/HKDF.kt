@@ -74,7 +74,7 @@ object HKDF {
 
     fun forSharedKeyMaterial(sharedSecret: Secret, info: ByteArray): ByteArray {
         var newOutput: ByteArray? = null
-        val salt = (KeyContext.RootKey.SALT).toByteArray(Charsets.UTF_8)
+        val salt = (KeyContext.SharedKey.SALT).toByteArray(Charsets.UTF_8)
         var prk: ByteArray? = null
 
         return try {
