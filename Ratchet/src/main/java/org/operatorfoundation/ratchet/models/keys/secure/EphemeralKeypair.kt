@@ -16,7 +16,7 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair, val createdAt:
             return !isDestroyed
         }
 
-    private val areExpired: Boolean
+    private val isExpired: Boolean
         get() {
             val elapsedMs = System.currentTimeMillis() - createdAt
             val elapsedHours = elapsedMs / 3600000
@@ -35,7 +35,9 @@ open class EphemeralKeypair(curve25519KeyPair: Curve25519KeyPair, val createdAt:
 
     fun consume(block: (EphemeralPublicKey, PrivateKey)->Unit) {
         check(!isDestroyed) { "Ephemeral keypair has been destroyed "}
-        check(!areExpired) { getMessageDescribingExpiredKeypair() }
+        if (isExpired) {
+            throw SecurityException(getMessageDescribingExpiredKeypair())
+        }
         if (!isDestroyed) {
             block(EphemeralPublicKey(_publicKeyBytes), PrivateKey(_privateKeyBytes))
             close()

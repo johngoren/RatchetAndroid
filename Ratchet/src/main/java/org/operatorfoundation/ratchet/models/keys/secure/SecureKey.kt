@@ -27,7 +27,8 @@ open class SecureKey(keyBytes: ByteArray, val createdAt: Long = System.currentTi
 
     fun consume(block: (ByteArray)->Unit) {
         check(!isDestroyed) { getMessageDescribingKeyDestruction() }
-        check(!isExpired) { getMessageDescribingExpiredKey() }
+
+        if (isExpired) { throw SecurityException(getMessageDescribingExpiredKey()) }
 
         if (!isDestroyed) {
             block(_keyBytes)
