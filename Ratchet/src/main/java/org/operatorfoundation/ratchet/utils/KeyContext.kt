@@ -13,6 +13,7 @@ object KeyContext {
 
         return ByteBuffer.allocate(bufferSize)
             .put(prefixBytes)
+            .put(sessionId)
             .put(counterBytes)
             .array()
     }
