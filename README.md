@@ -1,2 +1,2 @@
 # RatchetAndroid
-RatchetAndroid is a library for double ratchet encryption
+RatchetAndroid is an Android library for double ratchet encryption, developed for the Shout Messages SMS app.
