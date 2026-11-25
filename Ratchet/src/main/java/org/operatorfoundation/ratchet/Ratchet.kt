@@ -1,18 +1,23 @@
 package org.operatorfoundation.ratchet
 
+import org.operatorfoundation.aes.Ciphertext
 import org.operatorfoundation.madh.MADH
 import org.operatorfoundation.ratchet.Config.MAX_COUNTER_NUM
+import org.operatorfoundation.ratchet.models.PlaintextMessage
 import org.operatorfoundation.ratchet.models.keys.RootKey
 import org.operatorfoundation.ratchet.models.RatchetState
 import org.operatorfoundation.ratchet.models.keys.PrivateKey
 import org.operatorfoundation.ratchet.models.keys.EphemeralPublicKey
+import org.operatorfoundation.ratchet.models.keys.MessageKey
 import org.operatorfoundation.ratchet.models.keys.Secret
 import org.operatorfoundation.ratchet.models.keys.secure.EphemeralKeypair
 import org.operatorfoundation.ratchet.ratchets.DHRatchet
 import org.operatorfoundation.ratchet.ratchets.MonotonicCounter
 import org.operatorfoundation.ratchet.ratchets.SymmetricRatchet
+import org.operatorfoundation.ratchet.utils.Decrypt
 import org.operatorfoundation.ratchet.utils.KeyContext
 import org.operatorfoundation.ratchet.utils.ECDH
+import org.operatorfoundation.ratchet.utils.Encrypt
 import org.operatorfoundation.ratchet.utils.HKDF
 
 /**
@@ -267,4 +272,12 @@ object Ratchet
         return EphemeralKeypair(MADH.generateKeypair())
     }
 
+    fun encrypt(key: MessageKey, plaintext: PlaintextMessage): Ciphertext {
+        return Encrypt.perform(key, plaintext)
+    }
+
+    fun decrypt(key: MessageKey, ciphertext: Ciphertext): PlaintextMessage? {
+        return Decrypt.perform(key, ciphertext)
+    }
+    
 }
